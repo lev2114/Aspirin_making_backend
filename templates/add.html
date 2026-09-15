@@ -1,0 +1,50 @@
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Добавление - Производство аспирина</title>
+    <link rel="stylesheet" href="/static/styles/style.css">
+    <style>
+        .form-wrapper { padding: 20px; padding-bottom: 80px; }
+        .form-section { margin-bottom: 20px; }
+        input, textarea { width: 100%; padding: 10px; margin-top: 5px; background: #e0e0e0; border: none; border-radius: 5px; box-sizing: border-box; }
+        label { font-size: 20px; margin-bottom: 5px; display: block; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div style="background-color: #222; color: white; text-align: center; padding: 15px; font-size: 20px;">Добавление</div>
+        <div class="form-wrapper">
+            <h2 style="margin-top:0;">Добавление этапа</h2>
+            <span style="color: green; font-weight: bold;">Черновик</span>
+            
+            <form action="/add" method="POST">
+                <div class="form-section">
+                    <label>Медиа</label>
+                    <div style="display: flex; gap: 10px;">
+                        <div style="flex:1; background:#ccc; height:100px; display:flex; align-items:center; justify-content:center;">Фото</div>
+                        <div style="flex:1; background:#ccc; height:100px; display:flex; align-items:center; justify-content:center;">Видео</div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <label>Описание этапа</label>
+                    <input type="text" name="title" placeholder="Название этапа">
+                    <textarea name="description" placeholder="Описание процесса" rows="3"></textarea>
+                </div>
+
+                <div class="form-section">
+                    <label>Параметры</label>
+                    <input type="number" name="duration" placeholder="Продолжительность, мин">
+                    <input type="number" name="yield" placeholder="Ожидаемый выход, %">
+                </div>
+            </form>
+        </div>
+
+        <div class="bottom-nav">
+            <a href="/">Лента</a>
+            <a href="/add">Добавление</a>
+            <a href="/grid">Плитка</a>
+        </div>
+    </div>
+</body>
+</html>
