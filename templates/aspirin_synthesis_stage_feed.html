@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Лента этапов синтеза аспирина</title>
+    <link rel="stylesheet" href="/static/styles/aspirin_synthesis.css">
+</head>
+<body>
+<div class="app-container">
+    <section class="aspirin-feed-card">
+        <video class="aspirin-feed-video" autoplay loop muted playsinline poster="{{ .aspirinSynthesisStage.AspirinSynthesisStageImageURL }}">
+            <source src="{{ .aspirinSynthesisStage.AspirinSynthesisStageVideoURL }}" type="video/mp4">
+            <source src="{{ .defaultAspirinStageVideoURL }}" type="video/mp4">
+        </video>
+
+        <aside class="aspirin-feed-side-panel">
+            <div class="aspirin-feed-metric">
+                {{ if .aspirinSynthesisStage.SynthesisDurationMinutes }}
+                    {{ .aspirinSynthesisStage.SynthesisDurationMinutes }}<br>МИН.
+                {{ else }}
+                    —<br>МИН.
+                {{ end }}
+            </div>
+
+            <div class="aspirin-feed-metric">
+                {{ if .aspirinSynthesisStage.PureAspirinYieldPercent }}
+                    {{ .aspirinSynthesisStage.PureAspirinYieldPercent }}%
+                {{ else }}
+                    —%
+                {{ end }}
+            </div>
+
+            <div class="aspirin-feed-like-block">
+                <img src="/static/img/heart.png" alt="Лайки этапа синтеза">
+                <span>{{ .aspirinSynthesisStage.AspirinSynthesisLikeCount }}</span>
+            </div>
+
+            <a class="aspirin-icon-link" href="/aspirin-synthesis-stage?aspirin_synthesis_stage_id={{ .aspirinSynthesisStage.AspirinSynthesisStageID }}&next=true">
+                <img src="/static/img/next.png" alt="Следующий этап синтеза">
+            </a>
+        </aside>
+
+        <div class="aspirin-feed-description">
+            <h1>{{ .aspirinSynthesisStage.AspirinSynthesisStageName }}</h1>
+
+            {{ if .aspirinSynthesisStageDescriptionExpanded }}
+                <p>{{ .aspirinSynthesisStage.AspirinSynthesisStageDescription }}</p>
+                <a href="/aspirin-synthesis-stage?aspirin_synthesis_stage_id={{ .aspirinSynthesisStage.AspirinSynthesisStageID }}">Свернуть</a>
+            {{ else }}
+                <p class="aspirin-description-short">{{ .aspirinSynthesisStage.AspirinSynthesisStageDescription }}</p>
+                <a href="/aspirin-synthesis-stage?aspirin_synthesis_stage_id={{ .aspirinSynthesisStage.AspirinSynthesisStageID }}&aspirin_synthesis_stage_description=full">Подробнее</a>
+            {{ end }}
+        </div>
+    </section>
+
+    <nav class="bottom-nav">
+        <a href="/aspirin-synthesis-stage">Лента</a>
+        <a href="/aspirin-synthesis-stage-draft">Добавление</a>
+        <a href="/aspirin-synthesis-stages">Плитка</a>
+    </nav>
+</div>
+</body>
+</html>

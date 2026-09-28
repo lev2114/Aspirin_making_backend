@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Добавление этапа синтеза аспирина</title>
+
+    <link
+        rel="stylesheet"
+        href="/static/styles/aspirin_synthesis.css"
+    >
+</head>
+
+<body>
+<div class="app-container aspirin-form-page">
+    <main class="aspirin-form-container">
+        <h1>Этап синтеза аспирина</h1>
+
+        {{ if .aspirinSynthesisStageDraft }}
+
+            <div class="aspirin-media-preview">
+                <object
+                    class="aspirin-preview-image"
+                    data="{{ .aspirinSynthesisStageDraft.AspirinSynthesisStageImageURL }}"
+                >
+                    <img
+                        src="{{ .defaultAspirinStageImageURL }}"
+                        alt="Фото этапа синтеза по умолчанию"
+                    >
+                </object>
+
+                <video
+                    class="aspirin-preview-video"
+                    controls
+                    muted
+                    poster="{{ .defaultAspirinStageImageURL }}"
+                >
+                    <source
+                        src="{{ .aspirinSynthesisStageDraft.AspirinSynthesisStageVideoURL }}"
+                        type="video/mp4"
+                    >
+
+                    <source
+                        src="{{ .defaultAspirinStageVideoURL }}"
+                        type="video/mp4"
+                    >
+                </video>
+            </div>
+
+            <form
+                action="/aspirin-synthesis-stage-publication"
+                method="POST"
+                class="aspirin-form"
+            >
+                <input
+                    type="hidden"
+                    name="aspirin_synthesis_stage_id"
+                    value="{{ .aspirinSynthesisStageDraft.AspirinSynthesisStageID }}"
+                >
+
+                <div class="aspirin-form-group">
+                    <label for="aspirin_synthesis_stage_name">
+                        Название этапа синтеза
+                    </label>
+
+                    <input
+                        id="aspirin_synthesis_stage_name"
+                        type="text"
+                        value="{{ .aspirinSynthesisStageDraft.AspirinSynthesisStageName }}"
+                        readonly
+                    >
+                </div>
+
+                <div class="aspirin-form-group">
+                    <label for="aspirin_synthesis_stage_description">
+                        Краткое описание этапа
+                    </label>
+
+                    <textarea
+                        id="aspirin_synthesis_stage_description"
+                        name="aspirin_synthesis_stage_description"
+                        rows="4"
+                        required
+                    >{{ .aspirinSynthesisStageDraft.AspirinSynthesisStageDescription }}</textarea>
+                </div>
+
+                <div class="aspirin-form-group">
+                    <label for="synthesis_duration_minutes">
+                        Длительность синтеза, мин.
+                    </label>
+
+                    <input
+                        id="synthesis_duration_minutes"
+                        name="synthesis_duration_minutes"
+                        type="number"
+                        min="1"
+                        required
+                        {{ if .aspirinSynthesisStageDraft.SynthesisDurationMinutes }}
+                            value="{{ .aspirinSynthesisStageDraft.SynthesisDurationMinutes }}"
+                        {{ end }}
+                    >
+                </div>
+
+                <div class="aspirin-form-group">
+                    <label for="pure_aspirin_yield_percent">
+                        Выход чистого аспирина, %
+                    </label>
+
+                    <input
+                        id="pure_aspirin_yield_percent"
+                        name="pure_aspirin_yield_percent"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        required
+                        {{ if .aspirinSynthesisStageDraft.PureAspirinYieldPercent }}
+                            value="{{ .aspirinSynthesisStageDraft.PureAspirinYieldPercent }}"
+                        {{ end }}
+                    >
+                </div>
+
+                <button
+                    class="aspirin-action-button"
+                    type="submit"
+                >
+                    ОПУБЛИКОВАТЬ
+                </button>
+            </form>
+
+        {{ else }}
+
+            <form
+                action="/aspirin-synthesis-stage-draft"
+                method="POST"
+                class="aspirin-form"
+            >
+                <div class="aspirin-media-choice">
+                    <img
+                        class="aspirin-preview-image"
+                        src="{{ .defaultAspirinStageImageURL }}"
+                        alt="Фото этапа синтеза по умолчанию"
+                    >
+
+                    <div class="aspirin-form-group">
+                        <label for="aspirin_synthesis_stage_image_file">
+                            Фото этапа синтеза
+                        </label>
+
+                        <input
+                            id="aspirin_synthesis_stage_image_file"
+                            type="file"
+                            accept="image/*"
+                        >
+
+                        <small>
+                            Файл выбирается, но в ЛР-2 не отправляется.
+                        </small>
+                    </div>
+                </div>
+
+                <div class="aspirin-media-choice">
+                    <video
+                        class="aspirin-preview-video"
+                        controls
+                        muted
+                        poster="{{ .defaultAspirinStageImageURL }}"
+                    >
+                        <source
+                            src="{{ .defaultAspirinStageVideoURL }}"
+                            type="video/mp4"
+                        >
+                    </video>
+
+                    <div class="aspirin-form-group">
+                        <label for="aspirin_synthesis_stage_video_file">
+                            Видео этапа синтеза
+                        </label>
+
+                        <input
+                            id="aspirin_synthesis_stage_video_file"
+                            type="file"
+                            accept="video/*"
+                        >
+
+                        <small>
+                            Файл выбирается, но в ЛР-2 не отправляется.
+                        </small>
+                    </div>
+                </div>
+
+                <div class="aspirin-form-group">
+                    <label for="aspirin_synthesis_stage_name">
+                        Название этапа синтеза
+                    </label>
+
+                    <input
+                        id="aspirin_synthesis_stage_name"
+                        name="aspirin_synthesis_stage_name"
+                        type="text"
+                        maxlength="100"
+                        required
+                        placeholder="Например: кристаллизация ацетилсалициловой кислоты"
+                    >
+                </div>
+
+                <button
+                    class="aspirin-action-button"
+                    type="submit"
+                >
+                    ДАЛЕЕ
+                </button>
+            </form>
+
+        {{ end }}
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="/aspirin-synthesis-stage">
+            Лента
+        </a>
+
+        <a href="/aspirin-synthesis-stage-draft">
+            Добавление
+        </a>
+
+        <a href="/aspirin-synthesis-stages">
+            Плитка
+        </a>
+    </nav>
+</div>
+</body>
+</html>

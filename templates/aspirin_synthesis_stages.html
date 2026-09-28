@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Этапы синтеза аспирина</title>
+    <link rel="stylesheet" href="/static/styles/aspirin_synthesis.css">
+</head>
+<body>
+<div class="app-container aspirin-grid-page">
+    <main class="aspirin-grid-wrapper">
+        <h1>Этапы синтеза аспирина</h1>
+
+        <form class="filter-form"
+              action="/aspirin-synthesis-stages"
+              method="GET">
+            
+            <div class="filter-header">
+                <span>Длительность этапа, мин.</span>
+            
+                <span class="filter-value">
+                    {{ if .maxSynthesisDurationMinutes }}
+                        до {{ .maxSynthesisDurationMinutes }} мин.
+                    {{ else }}
+                        все
+                    {{ end }}
+                </span>
+            </div>
+        
+            <div class="duration-range-wrapper">
+                <span>0</span>
+            
+                <input
+                    type="range"
+                    name="max_synthesis_duration_minutes"
+                    min="0"
+                    max="30"
+                    step="1"
+                    value="{{ if .maxSynthesisDurationMinutes }}{{ .maxSynthesisDurationMinutes }}{{ else }}30{{ end }}"
+                >
+            
+                <span>30</span>
+            </div>
+        
+            <button type="submit" class="aspirin-action-button">
+                ПРИМЕНИТЬ ФИЛЬТР
+            </button>
+        </form>
+
+        <section class="aspirin-grid-container">
+            {{ range .aspirinSynthesisStages }}
+                <article class="aspirin-grid-item">
+                    <a class="aspirin-grid-stage-link" href="/aspirin-synthesis-stage?aspirin_synthesis_stage_id={{ .AspirinSynthesisStageID }}">
+                        <object class="aspirin-grid-image" data="{{ .AspirinSynthesisStageImageURL }}">
+                            <img src="/static/img/default.png" alt="Фото этапа синтеза по умолчанию">
+                        </object>
+                        <h2>{{ .AspirinSynthesisStageName }}</h2>
+                    </a>
+
+                    <div class="aspirin-grid-stats">
+                        <span>
+                            {{ if .SynthesisDurationMinutes }}{{ .SynthesisDurationMinutes }} мин.{{ else }}— мин.{{ end }}
+                        </span>
+                        <span>♥ {{ .AspirinSynthesisLikeCount }}</span>
+                    </div>
+
+                    <form action="/aspirin-synthesis-stage-deletion" method="POST">
+                        <input type="hidden" name="aspirin_synthesis_stage_id" value="{{ .AspirinSynthesisStageID }}">
+                        <button class="aspirin-action-button" type="submit">
+                            УДАЛИТЬ ЭТАП
+                        </button>
+                    </form>
+                </article>
+            {{ else }}
+                <p class="aspirin-empty-message">Опубликованные этапы синтеза по выбранному условию не найдены.</p>
+            {{ end }}
+        </section>
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="/aspirin-synthesis-stage">Лента</a>
+        <a href="/aspirin-synthesis-stage-draft">Добавление</a>
+        <a href="/aspirin-synthesis-stages">Плитка</a>
+    </nav>
+</div>
+</body>
+</html>

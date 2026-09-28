@@ -1,78 +1,259 @@
 package repository
 
 import (
-	"fmt"
+	"context"
+	"errors"
+	"time"
+
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-type Repository struct{}
+const (
+	AspirinSynthesisStageStatusDraft     = "draft"
+	AspirinSynthesisStageStatusPublished = "published"
+	AspirinSynthesisStageStatusDeleted   = "deleted"
+)
 
-func NewRepository() (*Repository, error) {
-	return &Repository{}, nil
+var (
+	ErrAspirinSynthesisStageNotFound = errors.New("этап синтеза аспирина не найден")
+	ErrAspirinSynthesisDraftExists   = errors.New("у пользователя уже есть черновик этапа синтеза аспирина")
+)
+
+type AspirinProductionUser struct {
+	ProductionUserID       int    `gorm:"column:production_user_id;primaryKey"`
+	ProductionUsername     string `gorm:"column:production_username;size:100;not null;uniqueIndex"`
+	ProductionUserPassword string `gorm:"column:production_user_password;size:255;not null"`
 }
 
-type AspirinStage struct {
-	ID          int
-	Title       string
-	Description string
-	DurationMin int // Индивидуальное поле 1 (числовое)
-	YieldPct    int // Индивидуальное поле 2 (числовое)
-	Likes       int
-	ImageURL    string
-	VideoURL    string
+type AspirinSynthesisStageLike struct {
+	AspirinSynthesisStageLikeID int `gorm:"column:aspirin_stage_like_id;primaryKey"`
+	AspirinProductionUserID     int `gorm:"column:production_user_id;not null;uniqueIndex:idx_aspirin_stage_user_like"`
+	AspirinSynthesisStageID     int `gorm:"column:aspirin_stage_id;not null;uniqueIndex:idx_aspirin_stage_user_like"`
 }
 
-func (r *Repository) GetAspirinStages() ([]AspirinStage, error) {
-	stages := []AspirinStage{
-		{
-			ID:          1,
-			Title:       "Подготовка материалов",
-			Description: "Сбор реагентов и посуды.",
-			DurationMin: 10,
-			YieldPct:    100,
-			Likes:       21,
-			ImageURL:    "http://localhost:9000/aspirin-synthesis-media/materials_gathering.png",
-			VideoURL:    "http://localhost:9000/aspirin-synthesis-media/materials_gathering.mp4",
-		},
-		{
-			ID:          2,
-			Title:       "Ацетилирование",
-			Description: "Взаимодействие исходного вещества с ацетилирующим реагентом. После завершения реакции продукт направляется на охлаждение и кристаллизацию.",
-			DurationMin: 20,
-			YieldPct:    85,
-			Likes:       12,
-			ImageURL:    "http://localhost:9000/aspirin-synthesis-media/acetylation.png",
-			VideoURL:    "http://localhost:9000/aspirin-synthesis-media/acetylation.mp4",
-		},
-		{
-			ID:          3,
-			Title:       "Фильтрация",
-			Description: "Очистка от примесей.",
-			DurationMin: 10,
-			YieldPct:    80,
-			Likes:       8,
-			ImageURL:    "http://localhost:9000/aspirin-synthesis-media/filtering.png",
-			VideoURL:    "http://localhost:9000/aspirin-synthesis-media/filtering.mp4",
-		},
-		{
-			ID:          4,
-			Title:       "Перекристаллизация",
-			Description: "Получение чистого вещества.",
-			DurationMin: 25,
-			YieldPct:    75,
-			Likes:       25,
-			ImageURL:    "http://localhost:9000/aspirin-synthesis-media/recrystallisation.png",
-			VideoURL:    "http://localhost:9000/aspirin-synthesis-media/recrystallisation.mp4",
-		},
+func (AspirinProductionUser) TableName() string {
+	return "aspirin_production_users"
+}
+
+type AspirinSynthesisStage struct {
+	AspirinSynthesisStageID          int        `gorm:"column:aspirin_stage_id;primaryKey"`
+	AspirinSynthesisStageName        string     `gorm:"column:aspirin_stage_name"`
+	AspirinSynthesisStageDescription string     `gorm:"column:aspirin_stage_description"`
+	AspirinSynthesisStageStatus      string     `gorm:"column:aspirin_stage_status"`
+	AspirinSynthesisStageImageURL    *string    `gorm:"column:aspirin_stage_image_url"`
+	AspirinSynthesisStageVideoURL    *string    `gorm:"column:aspirin_stage_video_url"`
+	SynthesisDurationMinutes         *int       `gorm:"column:synthesis_duration_minutes"`
+	PureAspirinYieldPercent          *float64   `gorm:"column:pure_aspirin_yield_percent"`
+	AspirinSynthesisStageCreatedAt   time.Time  `gorm:"column:aspirin_stage_created_at"`
+	AspirinSynthesisStageFormedAt    *time.Time `gorm:"column:aspirin_stage_formed_at"`
+	AspirinProductionUserID          int        `gorm:"column:production_user_id"`
+
+	AspirinSynthesisStageLikes []AspirinSynthesisStageLike `gorm:"foreignKey:AspirinSynthesisStageID;references:AspirinSynthesisStageID"`
+	AspirinSynthesisLikeCount  int                         `gorm:"-"`
+}
+
+func (AspirinSynthesisStage) TableName() string {
+	return "aspirin_stages"
+}
+
+func (AspirinSynthesisStageLike) TableName() string {
+	return "aspirin_stage_likes"
+}
+
+type Repository struct {
+	db *gorm.DB
+}
+
+func New(dsn string) (*Repository, error) {
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		return nil, err
 	}
+
+	return &Repository{db: db}, nil
+}
+
+func calculateAspirinSynthesisLikeCount(stages []AspirinSynthesisStage) {
+	for i := range stages {
+		stages[i].AspirinSynthesisLikeCount = len(stages[i].AspirinSynthesisStageLikes)
+	}
+}
+
+func (r *Repository) GetPublishedAspirinSynthesisStages() ([]AspirinSynthesisStage, error) {
+	var stages []AspirinSynthesisStage
+
+	err := r.db.
+		Preload("AspirinSynthesisStageLikes").
+		Where("aspirin_stage_status = ?", AspirinSynthesisStageStatusPublished).
+		Order("aspirin_stage_id ASC").
+		Find(&stages).Error
+	if err != nil {
+		return nil, err
+	}
+
+	calculateAspirinSynthesisLikeCount(stages)
 	return stages, nil
 }
 
-func (r *Repository) GetStageByID(id int) (AspirinStage, error) {
-	stages, _ := r.GetAspirinStages()
-	for _, stage := range stages {
-		if stage.ID == id {
-			return stage, nil
+func (r *Repository) FilterPublishedAspirinSynthesisStagesByDuration(
+	maxDuration int,
+) ([]AspirinSynthesisStage, error) {
+
+	var stages []AspirinSynthesisStage
+
+	err := r.db.
+		Preload("AspirinSynthesisStageLikes").
+		Where(
+			"aspirin_stage_status = ? AND synthesis_duration_minutes <= ?",
+			AspirinSynthesisStageStatusPublished,
+			maxDuration,
+		).
+		Order("aspirin_stage_id ASC").
+		Find(&stages).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	calculateAspirinSynthesisLikeCount(stages)
+	return stages, nil
+}
+
+func (r *Repository) GetAspirinSynthesisStageForFeed(stageID *int, next bool) (*AspirinSynthesisStage, error) {
+	stages, err := r.GetPublishedAspirinSynthesisStages()
+	if err != nil {
+		return nil, err
+	}
+	if len(stages) == 0 {
+		return nil, ErrAspirinSynthesisStageNotFound
+	}
+
+	if stageID == nil {
+		return &stages[0], nil
+	}
+
+	currentIndex := -1
+	for i := range stages {
+		if stages[i].AspirinSynthesisStageID == *stageID {
+			currentIndex = i
+			break
 		}
 	}
-	return AspirinStage{}, fmt.Errorf("этап синтеза не найден")
+	if currentIndex == -1 {
+		return nil, ErrAspirinSynthesisStageNotFound
+	}
+
+	if !next {
+		return &stages[currentIndex], nil
+	}
+
+	nextIndex := currentIndex + 1
+	if nextIndex >= len(stages) {
+		nextIndex = 0
+	}
+	return &stages[nextIndex], nil
+}
+
+func (r *Repository) GetAspirinSynthesisStageDraft(aspirinProductionUserID int) (*AspirinSynthesisStage, error) {
+	var draft AspirinSynthesisStage
+
+	err := r.db.
+		Where(
+			"production_user_id = ? AND aspirin_stage_status = ?",
+			aspirinProductionUserID,
+			AspirinSynthesisStageStatusDraft,
+		).
+		First(&draft).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &draft, nil
+}
+
+func (r *Repository) CreateAspirinSynthesisStageDraft(stageName string, aspirinProductionUserID int) error {
+	existingDraft, err := r.GetAspirinSynthesisStageDraft(aspirinProductionUserID)
+	if err != nil {
+		return err
+	}
+	if existingDraft != nil {
+		return ErrAspirinSynthesisDraftExists
+	}
+
+	stage := AspirinSynthesisStage{
+		AspirinSynthesisStageName:      stageName,
+		AspirinSynthesisStageStatus:    AspirinSynthesisStageStatusDraft,
+		AspirinProductionUserID:        aspirinProductionUserID,
+		AspirinSynthesisStageCreatedAt: time.Now(),
+	}
+
+	return r.db.Create(&stage).Error
+}
+
+func (r *Repository) PublishAspirinSynthesisStageDraft(
+	stageID int,
+	aspirinProductionUserID int,
+	description string,
+	durationMinutes int,
+	pureAspirinYieldPercent float64,
+) error {
+	now := time.Now()
+
+	result := r.db.Model(&AspirinSynthesisStage{}).
+		Where(
+			"aspirin_stage_id = ? AND production_user_id = ? AND aspirin_stage_status = ?",
+			stageID,
+			aspirinProductionUserID,
+			AspirinSynthesisStageStatusDraft,
+		).
+		Updates(map[string]any{
+			"aspirin_stage_description":  description,
+			"synthesis_duration_minutes": durationMinutes,
+			"pure_aspirin_yield_percent": pureAspirinYieldPercent,
+			"aspirin_stage_status":       AspirinSynthesisStageStatusPublished,
+			"aspirin_stage_formed_at":    now,
+		})
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrAspirinSynthesisStageNotFound
+	}
+
+	return nil
+}
+
+func (r *Repository) DeleteAspirinSynthesisStage(stageID int) error {
+	sqlDB, err := r.db.DB()
+	if err != nil {
+		return err
+	}
+
+	result, err := sqlDB.ExecContext(
+		context.Background(),
+		`UPDATE aspirin_stages
+         SET aspirin_stage_status = $1
+         WHERE aspirin_stage_id = $2
+           AND aspirin_stage_status <> $1`,
+		AspirinSynthesisStageStatusDeleted,
+		stageID,
+	)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrAspirinSynthesisStageNotFound
+	}
+
+	return nil
 }
