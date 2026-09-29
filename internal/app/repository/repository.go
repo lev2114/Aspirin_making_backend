@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -61,22 +63,68 @@ func (AspirinSynthesisStageLike) TableName() string {
 	return "aspirin_stage_likes"
 }
 
-type Repository struct {
-	db *gorm.DB
+type RepositorySettings struct {
+	PostgresDSN     string
+	MinioEndpoint   string
+	MinioAccessKey  string
+	MinioSecretKey  string
+	MinioBucketName string
 }
 
-func New(dsn string) (*Repository, error) {
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+type Repository struct {
+	db              *gorm.DB
+	minioClient     *minio.Client
+	minioBucketName string
+	minioEndpoint   string
+}
+
+func New(settings RepositorySettings) (*Repository, error) {
+	db, err := gorm.Open(postgres.Open(settings.PostgresDSN), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
 
-	return &Repository{db: db}, nil
+	minioClient, err := minio.New(settings.MinioEndpoint, &minio.Options{
+		Creds: credentials.NewStaticV4(
+			settings.MinioAccessKey,
+			settings.MinioSecretKey,
+			"",
+		),
+		Secure: false,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := context.Background()
+
+	exists, err := minioClient.BucketExists(ctx, settings.MinioBucketName)
+	if err != nil {
+		return nil, err
+	}
+
+	if !exists {
+		if err := minioClient.MakeBucket(
+			ctx,
+			settings.MinioBucketName,
+			minio.MakeBucketOptions{},
+		); err != nil {
+			return nil, err
+		}
+	}
+
+	return &Repository{
+		db:              db,
+		minioClient:     minioClient,
+		minioBucketName: settings.MinioBucketName,
+		minioEndpoint:   settings.MinioEndpoint,
+	}, nil
 }
 
 func calculateAspirinSynthesisLikeCount(stages []AspirinSynthesisStage) {
 	for i := range stages {
-		stages[i].AspirinSynthesisLikeCount = len(stages[i].AspirinSynthesisStageLikes)
+		stages[i].AspirinSynthesisLikeCount =
+			len(stages[i].AspirinSynthesisStageLikes)
 	}
 }
 
@@ -85,14 +133,19 @@ func (r *Repository) GetPublishedAspirinSynthesisStages() ([]AspirinSynthesisSta
 
 	err := r.db.
 		Preload("AspirinSynthesisStageLikes").
-		Where("aspirin_stage_status = ?", AspirinSynthesisStageStatusPublished).
+		Where(
+			"aspirin_stage_status = ?",
+			AspirinSynthesisStageStatusPublished,
+		).
 		Order("aspirin_stage_id ASC").
 		Find(&stages).Error
+
 	if err != nil {
 		return nil, err
 	}
 
 	calculateAspirinSynthesisLikeCount(stages)
+
 	return stages, nil
 }
 
@@ -117,14 +170,20 @@ func (r *Repository) FilterPublishedAspirinSynthesisStagesByDuration(
 	}
 
 	calculateAspirinSynthesisLikeCount(stages)
+
 	return stages, nil
 }
 
-func (r *Repository) GetAspirinSynthesisStageForFeed(stageID *int, next bool) (*AspirinSynthesisStage, error) {
+func (r *Repository) GetAspirinSynthesisStageForFeed(
+	stageID *int,
+	next bool,
+) (*AspirinSynthesisStage, error) {
+
 	stages, err := r.GetPublishedAspirinSynthesisStages()
 	if err != nil {
 		return nil, err
 	}
+
 	if len(stages) == 0 {
 		return nil, ErrAspirinSynthesisStageNotFound
 	}
@@ -134,12 +193,14 @@ func (r *Repository) GetAspirinSynthesisStageForFeed(stageID *int, next bool) (*
 	}
 
 	currentIndex := -1
+
 	for i := range stages {
 		if stages[i].AspirinSynthesisStageID == *stageID {
 			currentIndex = i
 			break
 		}
 	}
+
 	if currentIndex == -1 {
 		return nil, ErrAspirinSynthesisStageNotFound
 	}
@@ -149,13 +210,18 @@ func (r *Repository) GetAspirinSynthesisStageForFeed(stageID *int, next bool) (*
 	}
 
 	nextIndex := currentIndex + 1
+
 	if nextIndex >= len(stages) {
 		nextIndex = 0
 	}
+
 	return &stages[nextIndex], nil
 }
 
-func (r *Repository) GetAspirinSynthesisStageDraft(aspirinProductionUserID int) (*AspirinSynthesisStage, error) {
+func (r *Repository) GetAspirinSynthesisStageDraft(
+	aspirinProductionUserID int,
+) (*AspirinSynthesisStage, error) {
+
 	var draft AspirinSynthesisStage
 
 	err := r.db.
@@ -165,9 +231,11 @@ func (r *Repository) GetAspirinSynthesisStageDraft(aspirinProductionUserID int) 
 			AspirinSynthesisStageStatusDraft,
 		).
 		First(&draft).Error
+
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -175,11 +243,20 @@ func (r *Repository) GetAspirinSynthesisStageDraft(aspirinProductionUserID int) 
 	return &draft, nil
 }
 
-func (r *Repository) CreateAspirinSynthesisStageDraft(stageName string, aspirinProductionUserID int) error {
-	existingDraft, err := r.GetAspirinSynthesisStageDraft(aspirinProductionUserID)
+func (r *Repository) CreateAspirinSynthesisStageDraft(
+	stageName string,
+	aspirinProductionUserID int,
+) error {
+
+	existingDraft, err :=
+		r.GetAspirinSynthesisStageDraft(
+			aspirinProductionUserID,
+		)
+
 	if err != nil {
 		return err
 	}
+
 	if existingDraft != nil {
 		return ErrAspirinSynthesisDraftExists
 	}
@@ -194,41 +271,117 @@ func (r *Repository) CreateAspirinSynthesisStageDraft(stageName string, aspirinP
 	return r.db.Create(&stage).Error
 }
 
+func (r *Repository) CreateAspirinSynthesisStageDraftWithMedia(
+	stageName string,
+	aspirinProductionUserID int,
+	imageFilename *string,
+	videoFilename *string,
+) (*AspirinSynthesisStage, error) {
+
+	existingDraft, err :=
+		r.GetAspirinSynthesisStageDraft(
+			aspirinProductionUserID,
+		)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if existingDraft != nil {
+		return nil, ErrAspirinSynthesisDraftExists
+	}
+
+	stage := AspirinSynthesisStage{
+		AspirinSynthesisStageName:      stageName,
+		AspirinSynthesisStageStatus:    AspirinSynthesisStageStatusDraft,
+		AspirinProductionUserID:        aspirinProductionUserID,
+		AspirinSynthesisStageCreatedAt: time.Now(),
+
+		// Здесь в БД сохраняются только имена файлов.
+		AspirinSynthesisStageImageURL: imageFilename,
+		AspirinSynthesisStageVideoURL: videoFilename,
+	}
+
+	if err := r.db.Create(&stage).Error; err != nil {
+		return nil, err
+	}
+
+	return &stage, nil
+}
+
 func (r *Repository) PublishAspirinSynthesisStageDraft(
-	stageID int,
 	aspirinProductionUserID int,
 	description string,
 	durationMinutes int,
 	pureAspirinYieldPercent float64,
-) error {
-	now := time.Now()
+) (*AspirinSynthesisStage, error) {
 
-	result := r.db.Model(&AspirinSynthesisStage{}).
+	var draft AspirinSynthesisStage
+
+	err := r.db.
 		Where(
-			"aspirin_stage_id = ? AND production_user_id = ? AND aspirin_stage_status = ?",
-			stageID,
+			"production_user_id = ? AND aspirin_stage_status = ?",
 			aspirinProductionUserID,
 			AspirinSynthesisStageStatusDraft,
 		).
+		First(&draft).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrAspirinSynthesisStageNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+
+	err = r.db.
+		Model(&draft).
 		Updates(map[string]any{
-			"aspirin_stage_description":  description,
-			"synthesis_duration_minutes": durationMinutes,
-			"pure_aspirin_yield_percent": pureAspirinYieldPercent,
-			"aspirin_stage_status":       AspirinSynthesisStageStatusPublished,
-			"aspirin_stage_formed_at":    now,
-		})
+			"aspirin_stage_description":
+				description,
 
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return ErrAspirinSynthesisStageNotFound
+			"synthesis_duration_minutes":
+				durationMinutes,
+
+			"pure_aspirin_yield_percent":
+				pureAspirinYieldPercent,
+
+			"aspirin_stage_status":
+				AspirinSynthesisStageStatusPublished,
+
+			"aspirin_stage_formed_at":
+				now,
+		}).Error
+
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	// Обновляем поля в объекте, который вернём handler'у.
+	draft.AspirinSynthesisStageDescription =
+		description
+
+	draft.SynthesisDurationMinutes =
+		&durationMinutes
+
+	draft.PureAspirinYieldPercent =
+		&pureAspirinYieldPercent
+
+	draft.AspirinSynthesisStageStatus =
+		AspirinSynthesisStageStatusPublished
+
+	draft.AspirinSynthesisStageFormedAt =
+		&now
+
+	return &draft, nil
 }
 
-func (r *Repository) DeleteAspirinSynthesisStage(stageID int) error {
+func (r *Repository) DeleteAspirinSynthesisStage(
+	stageID int,
+) error {
+
 	sqlDB, err := r.db.DB()
 	if err != nil {
 		return err
@@ -243,6 +396,7 @@ func (r *Repository) DeleteAspirinSynthesisStage(stageID int) error {
 		AspirinSynthesisStageStatusDeleted,
 		stageID,
 	)
+
 	if err != nil {
 		return err
 	}
@@ -251,7 +405,66 @@ func (r *Repository) DeleteAspirinSynthesisStage(stageID int) error {
 	if err != nil {
 		return err
 	}
+
 	if rowsAffected == 0 {
+		return ErrAspirinSynthesisStageNotFound
+	}
+
+	return nil
+}
+
+func (r *Repository) GetAspirinSynthesisStageByID(
+	stageID int,
+) (*AspirinSynthesisStage, error) {
+
+	var stage AspirinSynthesisStage
+
+	err := r.db.
+		Preload("AspirinSynthesisStageLikes").
+		Where(
+			"aspirin_stage_id = ? AND aspirin_stage_status <> ?",
+			stageID,
+			AspirinSynthesisStageStatusDeleted,
+		).
+		First(&stage).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrAspirinSynthesisStageNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	stage.AspirinSynthesisLikeCount =
+		len(stage.AspirinSynthesisStageLikes)
+
+	return &stage, nil
+}
+
+func (r *Repository) DeleteAspirinSynthesisStageForUser(
+	stageID int,
+	aspirinProductionUserID int,
+) error {
+
+	result := r.db.
+		Model(&AspirinSynthesisStage{}).
+		Where(
+			"aspirin_stage_id = ? AND production_user_id = ? AND aspirin_stage_status <> ?",
+			stageID,
+			aspirinProductionUserID,
+			AspirinSynthesisStageStatusDeleted,
+		).
+		Update(
+			"aspirin_stage_status",
+			AspirinSynthesisStageStatusDeleted,
+		)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
 		return ErrAspirinSynthesisStageNotFound
 	}
 
