@@ -34,8 +34,8 @@ func (h *Handler) SetAspirinSynthesisStageLikeAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status":  "fail",
-				"message": "Некорректный ID этапа синтеза",
+				"message":
+					"Некорректный ID этапа синтеза",
 			},
 		)
 
@@ -52,8 +52,8 @@ func (h *Handler) SetAspirinSynthesisStageLikeAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status":  "fail",
-				"message": "Некорректное значение лайка",
+				"message":
+					"Некорректное значение лайка",
 			},
 		)
 
@@ -66,8 +66,8 @@ func (h *Handler) SetAspirinSynthesisStageLikeAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status":  "fail",
-				"message": "Поле like должно иметь значение 0 или 1",
+				"message":
+					"Поле like должно иметь значение 0 или 1",
 			},
 		)
 
@@ -92,8 +92,8 @@ func (h *Handler) SetAspirinSynthesisStageLikeAPI(
 			ctx.JSON(
 				http.StatusNotFound,
 				gin.H{
-					"status":  "fail",
-					"message": "Опубликованный этап не найден",
+					"message":
+						"Опубликованный этап не найден",
 				},
 			)
 
@@ -108,8 +108,8 @@ func (h *Handler) SetAspirinSynthesisStageLikeAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"status":  "fail",
-				"message": "Ошибка изменения лайка",
+				"message":
+					"Ошибка изменения лайка",
 			},
 		)
 
@@ -119,7 +119,6 @@ func (h *Handler) SetAspirinSynthesisStageLikeAPI(
 	ctx.JSON(
 		http.StatusOK,
 		gin.H{
-			"status": "success",
 			"data": gin.H{
 				"like":
 					request.Like,

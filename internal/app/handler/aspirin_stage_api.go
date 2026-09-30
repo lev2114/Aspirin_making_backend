@@ -111,7 +111,6 @@ func (h *Handler) GetAspirinSynthesisStagesAPI(
 			ctx.JSON(
 				http.StatusBadRequest,
 				gin.H{
-					"status": "fail",
 					"message":
 						"Неверное значение длительности этапа синтеза",
 				},
@@ -137,8 +136,8 @@ func (h *Handler) GetAspirinSynthesisStagesAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"status":  "fail",
-				"message": "Ошибка получения этапов синтеза",
+				"message":
+					"Ошибка получения этапов синтеза",
 			},
 		)
 
@@ -167,8 +166,7 @@ func (h *Handler) GetAspirinSynthesisStagesAPI(
 	ctx.JSON(
 		http.StatusOK,
 		gin.H{
-			"status": "success",
-			"data":   response,
+			"data": response,
 		},
 	)
 }
@@ -197,7 +195,6 @@ func (h *Handler) GetAspirinSynthesisStageDraftAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"status": "fail",
 				"message":
 					"Ошибка получения черновика этапа синтеза",
 			},
@@ -211,8 +208,7 @@ func (h *Handler) GetAspirinSynthesisStageDraftAPI(
 		ctx.JSON(
 			http.StatusOK,
 			gin.H{
-				"status": "success",
-				"data":   nil,
+				"data": nil,
 			},
 		)
 
@@ -222,7 +218,6 @@ func (h *Handler) GetAspirinSynthesisStageDraftAPI(
 	ctx.JSON(
 		http.StatusOK,
 		gin.H{
-			"status": "success",
 			"data":
 				h.serializeAspirinSynthesisStage(
 					*draft,
@@ -370,8 +365,8 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"status":  "fail",
-				"message": "Ошибка проверки существующего черновика",
+				"message":
+					"Ошибка проверки существующего черновика",
 			},
 		)
 
@@ -383,8 +378,8 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusConflict,
 			gin.H{
-				"status":  "fail",
-				"message": "У пользователя уже есть черновик",
+				"message":
+					"У пользователя уже есть черновик",
 			},
 		)
 
@@ -399,8 +394,8 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status":  "fail",
-				"message": "Некорректная multipart-форма",
+				"message":
+					"Некорректная multipart-форма",
 			},
 		)
 
@@ -419,8 +414,8 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status":  "fail",
-				"message": "Не указано название этапа синтеза",
+				"message":
+					"Не указано название этапа синтеза",
 			},
 		)
 
@@ -441,8 +436,8 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status":  "fail",
-				"message": "Ошибка получения изображения",
+				"message":
+					"Ошибка получения изображения",
 			},
 		)
 
@@ -461,8 +456,8 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 			ctx.JSON(
 				http.StatusBadRequest,
 				gin.H{
-					"status":  "fail",
-					"message": err.Error(),
+					"message":
+						err.Error(),
 				},
 			)
 
@@ -487,7 +482,6 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 			ctx.JSON(
 				http.StatusInternalServerError,
 				gin.H{
-					"status": "fail",
 					"message":
 						"Ошибка сохранения изображения",
 				},
@@ -518,8 +512,8 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status":  "fail",
-				"message": "Ошибка получения видео",
+				"message":
+					"Ошибка получения видео",
 			},
 		)
 
@@ -546,8 +540,8 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 			ctx.JSON(
 				http.StatusBadRequest,
 				gin.H{
-					"status":  "fail",
-					"message": err.Error(),
+					"message":
+						err.Error(),
 				},
 			)
 
@@ -580,7 +574,6 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 			ctx.JSON(
 				http.StatusInternalServerError,
 				gin.H{
-					"status": "fail",
 					"message":
 						"Ошибка сохранения видео",
 				},
@@ -627,7 +620,6 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 			ctx.JSON(
 				http.StatusConflict,
 				gin.H{
-					"status": "fail",
 					"message":
 						"У пользователя уже есть черновик",
 				},
@@ -644,7 +636,6 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"status": "fail",
 				"message":
 					"Ошибка создания этапа синтеза",
 			},
@@ -656,7 +647,6 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 	ctx.JSON(
 		http.StatusCreated,
 		gin.H{
-			"status": "success",
 			"data":
 				h.serializeAspirinSynthesisStage(
 					*stage,
@@ -684,8 +674,8 @@ func (h *Handler) PublishAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status":  "fail",
-				"message": "Некорректные данные публикации",
+				"message":
+					"Некорректные данные публикации",
 			},
 		)
 
@@ -702,8 +692,8 @@ func (h *Handler) PublishAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status":  "fail",
-				"message": "Описание этапа не может быть пустым",
+				"message":
+					"Описание этапа не может быть пустым",
 			},
 		)
 
@@ -715,7 +705,6 @@ func (h *Handler) PublishAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status": "fail",
 				"message":
 					"Длительность синтеза должна быть положительным числом",
 			},
@@ -730,7 +719,6 @@ func (h *Handler) PublishAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status": "fail",
 				"message":
 					"Выход чистого аспирина должен быть от 0 до 100 процентов",
 			},
@@ -758,8 +746,8 @@ func (h *Handler) PublishAspirinSynthesisStageAPI(
 			ctx.JSON(
 				http.StatusNotFound,
 				gin.H{
-					"status":  "fail",
-					"message": "Черновик текущего пользователя не найден",
+					"message":
+						"Черновик текущего пользователя не найден",
 				},
 			)
 
@@ -774,8 +762,8 @@ func (h *Handler) PublishAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"status":  "fail",
-				"message": "Ошибка публикации этапа синтеза",
+				"message":
+					"Ошибка публикации этапа синтеза",
 			},
 		)
 
@@ -785,8 +773,9 @@ func (h *Handler) PublishAspirinSynthesisStageAPI(
 	ctx.JSON(
 		http.StatusOK,
 		gin.H{
-			"status":  "success",
-			"message": "Этап синтеза опубликован",
+			"message":
+				"Этап синтеза опубликован",
+
 			"data":
 				h.serializeAspirinSynthesisStage(
 					*stage,
@@ -821,7 +810,6 @@ func (h *Handler) GetAspirinSynthesisStageFeedAPI(
 			ctx.JSON(
 				http.StatusNotFound,
 				gin.H{
-					"status": "fail",
 					"message":
 						"В ленте нет опубликованных этапов",
 				},
@@ -838,7 +826,6 @@ func (h *Handler) GetAspirinSynthesisStageFeedAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"status": "fail",
 				"message":
 					"Ошибка получения ленты",
 			},
@@ -850,7 +837,6 @@ func (h *Handler) GetAspirinSynthesisStageFeedAPI(
 	ctx.JSON(
 		http.StatusOK,
 		gin.H{
-			"status": "success",
 			"data":
 				h.serializeAspirinSynthesisStage(
 					*stage,
@@ -880,7 +866,6 @@ func (h *Handler) GetAspirinSynthesisStageFeedByIDAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status": "fail",
 				"message":
 					"Некорректный ID этапа синтеза",
 			},
@@ -908,7 +893,6 @@ func (h *Handler) GetAspirinSynthesisStageFeedByIDAPI(
 			ctx.JSON(
 				http.StatusBadRequest,
 				gin.H{
-					"status": "fail",
 					"message":
 						"Параметр next должен быть true или false",
 				},
@@ -937,7 +921,6 @@ func (h *Handler) GetAspirinSynthesisStageFeedByIDAPI(
 			ctx.JSON(
 				http.StatusNotFound,
 				gin.H{
-					"status": "fail",
 					"message":
 						"Опубликованный этап не найден",
 				},
@@ -954,7 +937,6 @@ func (h *Handler) GetAspirinSynthesisStageFeedByIDAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"status": "fail",
 				"message":
 					"Ошибка получения элемента ленты",
 			},
@@ -966,7 +948,6 @@ func (h *Handler) GetAspirinSynthesisStageFeedByIDAPI(
 	ctx.JSON(
 		http.StatusOK,
 		gin.H{
-			"status": "success",
 			"data":
 				h.serializeAspirinSynthesisStage(
 					*stage,
@@ -995,7 +976,6 @@ func (h *Handler) DeleteAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status": "fail",
 				"message":
 					"Некорректный ID этапа синтеза",
 			},
@@ -1021,7 +1001,6 @@ func (h *Handler) DeleteAspirinSynthesisStageAPI(
 			ctx.JSON(
 				http.StatusNotFound,
 				gin.H{
-					"status": "fail",
 					"message":
 						"Этап не найден или не принадлежит текущему пользователю",
 				},
@@ -1038,7 +1017,6 @@ func (h *Handler) DeleteAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"status": "fail",
 				"message":
 					"Ошибка удаления этапа",
 			},
@@ -1050,7 +1028,6 @@ func (h *Handler) DeleteAspirinSynthesisStageAPI(
 	ctx.JSON(
 		http.StatusOK,
 		gin.H{
-			"status": "success",
 			"message":
 				"Этап синтеза логически удалён",
 		},

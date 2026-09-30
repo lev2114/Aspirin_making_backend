@@ -37,8 +37,8 @@ func (h *Handler) RegisterAspirinProductionUserAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status":  "fail",
-				"message": "Некорректные данные пользователя",
+				"message":
+					"Некорректные данные пользователя",
 			},
 		)
 
@@ -60,8 +60,8 @@ func (h *Handler) RegisterAspirinProductionUserAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status":  "fail",
-				"message": "Имя пользователя не может быть пустым",
+				"message":
+					"Имя пользователя не может быть пустым",
 			},
 		)
 
@@ -73,8 +73,8 @@ func (h *Handler) RegisterAspirinProductionUserAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"status":  "fail",
-				"message": "Пароль не может быть пустым",
+				"message":
+					"Пароль не может быть пустым",
 			},
 		)
 
@@ -98,8 +98,8 @@ func (h *Handler) RegisterAspirinProductionUserAPI(
 			ctx.JSON(
 				http.StatusConflict,
 				gin.H{
-					"status":  "fail",
-					"message": "Пользователь с таким именем уже существует",
+					"message":
+						"Пользователь с таким именем уже существует",
 				},
 			)
 
@@ -114,8 +114,8 @@ func (h *Handler) RegisterAspirinProductionUserAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"status":  "fail",
-				"message": "Ошибка регистрации пользователя",
+				"message":
+					"Ошибка регистрации пользователя",
 			},
 		)
 
@@ -125,7 +125,6 @@ func (h *Handler) RegisterAspirinProductionUserAPI(
 	ctx.JSON(
 		http.StatusCreated,
 		gin.H{
-			"status": "success",
 			"data":
 				AspirinProductionUserResponse{
 					ProductionUserID:
@@ -139,7 +138,6 @@ func (h *Handler) RegisterAspirinProductionUserAPI(
 }
 
 // POST /api/authentication
-// Заглушка для ЛР-4.
 func (h *Handler) AuthenticateAspirinProductionUserAPI(
 	ctx *gin.Context,
 ) {
@@ -147,7 +145,6 @@ func (h *Handler) AuthenticateAspirinProductionUserAPI(
 	ctx.JSON(
 		http.StatusOK,
 		gin.H{
-			"status": "success",
 			"message":
 				"Аутентификация будет реализована в лабораторной работе №4",
 			"stub": true,
@@ -156,7 +153,6 @@ func (h *Handler) AuthenticateAspirinProductionUserAPI(
 }
 
 // POST /api/deauthentication
-// Заглушка для ЛР-4.
 func (h *Handler) DeauthenticateAspirinProductionUserAPI(
 	ctx *gin.Context,
 ) {
@@ -164,7 +160,6 @@ func (h *Handler) DeauthenticateAspirinProductionUserAPI(
 	ctx.JSON(
 		http.StatusOK,
 		gin.H{
-			"status": "success",
 			"message":
 				"Деавторизация будет реализована в лабораторной работе №4",
 			"stub": true,
