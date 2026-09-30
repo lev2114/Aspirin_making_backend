@@ -189,22 +189,6 @@ ID пользователя вычисляется PostgreSQL.
 
 Заглушка деавторизации для ЛР-4.
 
-# Singleton текущего пользователя
-
-В ЛР-3 полноценная авторизация отсутствует.
-
-Текущий пользователь фиксирован константой:
-
-```go
-const currentAspirinProductionUserID = 1
-
-func GetCurrentAspirinProductionUserID() int {
-	return currentAspirinProductionUserID
-}
-```
-
-Все методы, зависящие от пользователя, получают его ID через эту функцию.
-
 # Таблицы PostgreSQL
 
 ## aspirin_production_users
