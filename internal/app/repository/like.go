@@ -16,7 +16,6 @@ func (r *Repository) SetAspirinSynthesisStageLike(
 		return 0, errors.New("значение лайка должно быть 0 или 1")
 	}
 
-	// Лайкать можно только опубликованную услугу.
 	var stage AspirinSynthesisStage
 
 	err := r.db.
@@ -44,8 +43,7 @@ func (r *Repository) SetAspirinSynthesisStageLike(
 			AspirinSynthesisStageID:
 				stageID,
 		}
-
-		// Повторный like=1 не создаст второй лайк.
+		
 		if err :=
 			r.db.
 				Where(

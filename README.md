@@ -1,281 +1,62 @@
 # Aspirin Production
 
-Учебное веб-приложение по предметной области производства аспирина.
+Учебное веб-приложение для управления этапами синтеза аспирина: создание черновиков, загрузка медиа, публикация, фильтрация по длительности и лайки. Доступны REST API и серверные HTML-страницы.
 
-## Предметная область
+**Стек:** Go 1.25+, Gin, GORM, PostgreSQL 15, MinIO, Docker Compose.
 
-Услуги приложения — этапы синтеза аспирина.
+## Локальный запуск
 
-Пользователь может создавать этап синтеза в статусе черновика, добавлять изображение и короткое видео, заполнять описание этапа, его продолжительность и процент выхода чистого вещества, после чего публиковать услугу.
+1. Установите Go и Docker Compose, затем запустите инфраструктуру:
 
-В ЛР-3 реализован REST API для дальнейшего использования SPA.
+   ```sh
+   docker compose up -d
+   ```
 
-## Технологии
+2. Создайте `.env` в корне проекта с параметрами локальных сервисов:
 
-- Go
-- Gin
-- GORM
-- PostgreSQL
-- MinIO
-- Docker Compose
-- HTML SSR
-- CSS
-- Adminer
+   ```dotenv
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_USER=student
+   DB_PASS=root
+   DB_NAME=aspirin_db
+   MINIO_ENDPOINT=localhost:9000
+   MINIO_ACCESS_KEY=root
+   MINIO_SECRET_KEY=rootpassword
+   MINIO_BUCKET_NAME=aspirin-media
+   ```
 
-# REST API
+3. Подготовьте таблицы `aspirin_production_users`, `aspirin_stages` и `aspirin_stage_likes` по моделям в [repository.go](internal/app/repository/repository.go). Миграции и автоматическое создание таблиц в проекте отсутствуют. Для лайков требуется уникальность пары `(production_user_id, aspirin_stage_id)`.
+4. Для отображения загруженных медиа разрешите публичное чтение объектов в бакете MinIO. Бакет создаётся приложением при запуске, но политика доступа автоматически не задаётся.
+5. Дождитесь готовности PostgreSQL и MinIO и запустите приложение из корня проекта:
 
-Все методы ЛР-3 начинаются с `/api`.
+   ```sh
+   go run ./cmd/aspirin
+   ```
 
-## Домен этапов синтеза
+Веб-интерфейс: [localhost:8080/aspirin-synthesis-stages](http://localhost:8080/aspirin-synthesis-stages). MinIO Console: [localhost:9001](http://localhost:9001). Adminer: [localhost:8081](http://localhost:8081).
 
-### GET `/api/aspirin-stages`
+## REST API
 
-Получение списка опубликованных этапов синтеза.
+Все маршруты используют префикс `/api`.
 
-Удалённые и черновые записи клиенту не передаются.
+| Метод | Маршрут | Назначение |
+| --- | --- | --- |
+| GET | `/aspirin-stages` | Опубликованные этапы; фильтр `max_synthesis_duration_minutes` |
+| GET | `/aspirin-stages/draft` | Черновик текущего пользователя или `data: null` |
+| POST | `/aspirin-stages` | Создание черновика с медиа (`multipart/form-data`) |
+| PUT | `/aspirin-stages/draft/publication` | Публикация черновика |
+| GET | `/aspirin-stages/feed` | Первый опубликованный этап |
+| GET | `/aspirin-stages/feed/:id` | Этап ленты; `?next=true` возвращает следующий |
+| POST | `/aspirin-stages/:id/like` | Установка или снятие лайка: `{"like": 1}` / `{"like": 0}` |
+| DELETE | `/aspirin-stages/:id` | Логическое удаление своего этапа |
+| POST | `/users` | Регистрация: `username`, `password` |
+| POST | `/authentication`, `/deauthentication` | Заглушки аутентификации и выхода |
 
-Поддерживается фильтрация:
+При создании передаётся `aspirin_synthesis_stage_name`, опционально — файлы `aspirin_synthesis_stage_image` (до 10 МБ) и `aspirin_synthesis_stage_video` (до 50 МБ). Для публикации используются JSON-поля `aspirin_stage_description`, `synthesis_duration_minutes` и `pure_aspirin_yield_percent`.
 
-```text
-?max_synthesis_duration_minutes=60
-```
+Этапы переходят из `draft` в `published`; удаление устанавливает статус `deleted`. Медиа хранятся в MinIO, имена объектов — в PostgreSQL.
 
-Каждый объект содержит поле `is_creator`:
+## Текущие ограничения
 
-- `1` — текущий пользователь является создателем;
-- `0` — текущий пользователь не является создателем.
-
-### GET `/api/aspirin-stages/draft`
-
-Получение единственного черновика текущего пользователя.
-
-ID черновика клиентом не передаётся.
-
-Если черновика нет:
-
-```json
-{
-  "status": "success",
-  "data": null
-}
-```
-
-### POST `/api/aspirin-stages`
-
-Создание нового черновика.
-
-Content-Type:
-
-```text
-multipart/form-data
-```
-
-Поля:
-
-- `aspirin_synthesis_stage_name`
-- `aspirin_synthesis_stage_image`
-- `aspirin_synthesis_stage_video`
-
-Изображение и видео передаются как файлы.
-
-Файлы хранятся в MinIO.
-
-В PostgreSQL сохраняются только сгенерированные сервером имена файлов.
-
-Системные поля клиентом не передаются.
-
-Статус автоматически устанавливается в `draft`.
-
-Создатель определяется через singleton текущего пользователя.
-
-Дата создания задаётся сервером.
-
-### PUT `/api/aspirin-stages/draft/publication`
-
-Публикация единственного черновика текущего пользователя.
-
-JSON:
-
-```json
-{
-  "aspirin_stage_description": "Описание этапа",
-  "synthesis_duration_minutes": 45,
-  "pure_aspirin_yield_percent": 82.5
-}
-```
-
-При публикации:
-
-- `draft` меняется на `published`;
-- устанавливается дата формирования;
-- повторная публикация невозможна;
-- возврат опубликованной записи обратно в `draft` отсутствует.
-
-### GET `/api/aspirin-stages/feed`
-
-Получение первого опубликованного элемента ленты.
-
-### GET `/api/aspirin-stages/feed/:id`
-
-Получение указанного опубликованного элемента ленты.
-
-Пример:
-
-```text
-GET /api/aspirin-stages/feed/5
-```
-
-### GET `/api/aspirin-stages/feed/:id?next=true`
-
-Получение следующего опубликованного элемента ленты.
-
-### POST `/api/aspirin-stages/:id/like`
-
-Поставить или снять лайк от текущего пользователя.
-
-JSON:
-
-```json
-{
-  "like": 1
-}
-```
-
-Значения:
-
-- `1` — поставить лайк;
-- `0` — убрать лайк.
-
-Один пользователь не может поставить одной услуге несколько лайков.
-
-### DELETE `/api/aspirin-stages/:id`
-
-Логическое удаление услуги.
-
-Удалять можно только услуги текущего пользователя.
-
-Физически запись из PostgreSQL не удаляется.
-
-Статус меняется на:
-
-```text
-deleted
-```
-
-Удалённые записи больше не передаются клиенту.
-
-# Домен пользователей
-
-### POST `/api/users`
-
-Регистрация нового пользователя.
-
-JSON:
-
-```json
-{
-  "username": "student",
-  "password": "password"
-}
-```
-
-ID пользователя вычисляется PostgreSQL.
-
-### POST `/api/authentication`
-
-Заглушка аутентификации для ЛР-4.
-
-### POST `/api/deauthentication`
-
-Заглушка деавторизации для ЛР-4.
-
-# Таблицы PostgreSQL
-
-## aspirin_production_users
-
-| Поле | Назначение |
-|---|---|
-| `production_user_id` | Первичный ключ пользователя |
-| `production_username` | Уникальное имя пользователя |
-| `production_user_password` | Пароль пользователя |
-
-## aspirin_stages
-
-| Поле | Назначение |
-|---|---|
-| `aspirin_stage_id` | Первичный ключ этапа |
-| `aspirin_stage_name` | Название |
-| `aspirin_stage_description` | Описание |
-| `aspirin_stage_status` | `draft / published / deleted` |
-| `aspirin_stage_image_url` | Имя изображения в MinIO |
-| `aspirin_stage_video_url` | Имя видео в MinIO |
-| `synthesis_duration_minutes` | Длительность этапа |
-| `pure_aspirin_yield_percent` | Выход чистого вещества |
-| `aspirin_stage_created_at` | Дата создания |
-| `aspirin_stage_formed_at` | Дата публикации |
-| `production_user_id` | Создатель услуги |
-
-## aspirin_stage_likes
-
-| Поле | Назначение |
-|---|---|
-| `aspirin_stage_like_id` | Первичный ключ лайка |
-| `production_user_id` | Пользователь |
-| `aspirin_stage_id` | Этап синтеза |
-
-Для пары:
-
-```text
-production_user_id + aspirin_stage_id
-```
-
-установлено ограничение уникальности.
-
-# Хранение медиа
-
-Изображения и видео хранятся в MinIO.
-
-В PostgreSQL сохраняется только имя объекта.
-
-Пример значения в БД:
-
-```text
-image_1760001234567_ab12cd34.png
-```
-
-При сериализации backend преобразует имя в URL:
-
-```text
-http://localhost:9000/aspirin-media/image_1760001234567_ab12cd34.png
-```
-
-# Статусы услуги
-
-Допустимый основной переход:
-
-```text
-draft -> published
-```
-
-Также услуга может быть логически удалена:
-
-```text
-draft/published -> deleted
-```
-
-Возврат из `published` в `draft` не реализован.
-
-Удалённые записи клиенту не передаются.
-
-# SSR ЛР-2
-
-Старые SSR-маршруты сохранены:
-
-- GET `/aspirin-synthesis-stage`
-- GET `/aspirin-synthesis-stage-draft`
-- GET `/aspirin-synthesis-stages`
-- POST `/aspirin-synthesis-stage-draft`
-- POST `/aspirin-synthesis-stage-publication`
-- POST `/aspirin-synthesis-stage-deletion`
-
-Таким образом ЛР-3 добавляет API, не удаляя функциональность ЛР-2.
+Текущий пользователь фиксирован (`ID = 1`), а аутентификация ещё не реализована. Пароли сохраняются без хеширования. SSR-маршрут удаления не проверяет владельца этапа. Проект предназначен для учебного локального использования.
