@@ -5,10 +5,12 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -268,7 +270,7 @@ func (r *Repository) CreateAspirinSynthesisStageDraft(
 		AspirinSynthesisStageCreatedAt: time.Now(),
 	}
 
-	return r.db.Create(&stage).Error
+	return aspirinSynthesisDraftCreationError(r.db.Create(&stage).Error)
 }
 
 func (r *Repository) CreateAspirinSynthesisStageDraftWithMedia(
@@ -303,7 +305,7 @@ func (r *Repository) CreateAspirinSynthesisStageDraftWithMedia(
 	}
 
 	if err := r.db.Create(&stage).Error; err != nil {
-		return nil, err
+		return nil, aspirinSynthesisDraftCreationError(err)
 	}
 
 	return &stage, nil
@@ -317,69 +319,50 @@ func (r *Repository) PublishAspirinSynthesisStageDraft(
 ) (*AspirinSynthesisStage, error) {
 
 	var draft AspirinSynthesisStage
-
-	err := r.db.
-		Where(
-			"production_user_id = ? AND aspirin_stage_status = ?",
-			aspirinProductionUserID,
-			AspirinSynthesisStageStatusDraft,
-		).
-		First(&draft).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrAspirinSynthesisStageNotFound
-	}
-
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("production_user_id = ? AND aspirin_stage_status = ?", aspirinProductionUserID, AspirinSynthesisStageStatusDraft).
+			First(&draft).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrAspirinSynthesisStageNotFound
+		}
+		if err != nil {
+			return err
+		}
+		now := time.Now()
+		if err := tx.Model(&draft).Updates(map[string]any{
+			"aspirin_stage_description":  description,
+			"synthesis_duration_minutes": durationMinutes,
+			"pure_aspirin_yield_percent": pureAspirinYieldPercent,
+			"aspirin_stage_status":       AspirinSynthesisStageStatusPublished,
+			"aspirin_stage_formed_at":    now,
+		}).Error; err != nil {
+			return err
+		}
+		draft.AspirinSynthesisStageDescription = description
+		draft.SynthesisDurationMinutes = &durationMinutes
+		draft.PureAspirinYieldPercent = &pureAspirinYieldPercent
+		draft.AspirinSynthesisStageStatus = AspirinSynthesisStageStatusPublished
+		draft.AspirinSynthesisStageFormedAt = &now
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	now := time.Now()
-
-	err = r.db.
-		Model(&draft).
-		Updates(map[string]any{
-			"aspirin_stage_description":
-				description,
-
-			"synthesis_duration_minutes":
-				durationMinutes,
-
-			"pure_aspirin_yield_percent":
-				pureAspirinYieldPercent,
-
-			"aspirin_stage_status":
-				AspirinSynthesisStageStatusPublished,
-
-			"aspirin_stage_formed_at":
-				now,
-		}).Error
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Обновляем поля в объекте, который вернём handler'у.
-	draft.AspirinSynthesisStageDescription =
-		description
-
-	draft.SynthesisDurationMinutes =
-		&durationMinutes
-
-	draft.PureAspirinYieldPercent =
-		&pureAspirinYieldPercent
-
-	draft.AspirinSynthesisStageStatus =
-		AspirinSynthesisStageStatusPublished
-
-	draft.AspirinSynthesisStageFormedAt =
-		&now
-
 	return &draft, nil
+}
+
+func aspirinSynthesisDraftCreationError(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "idx_aspirin_stage_user_draft" {
+		return ErrAspirinSynthesisDraftExists
+	}
+	return err
 }
 
 func (r *Repository) DeleteAspirinSynthesisStage(
 	stageID int,
+	aspirinProductionUserID int,
 ) error {
 
 	sqlDB, err := r.db.DB()
@@ -392,9 +375,11 @@ func (r *Repository) DeleteAspirinSynthesisStage(
 		`UPDATE aspirin_stages
          SET aspirin_stage_status = $1
          WHERE aspirin_stage_id = $2
+           AND production_user_id = $3
            AND aspirin_stage_status <> $1`,
 		AspirinSynthesisStageStatusDeleted,
 		stageID,
+		aspirinProductionUserID,
 	)
 
 	if err != nil {

@@ -26,6 +26,18 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  redis:
+    image: redis:7-alpine
+    container_name: aspirin_redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-aspirin-redis-local}
+    command: ["sh", "-c", 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
+    volumes:
+      - redis-data:/data
+
   adminer:
     image: adminer
     container_name: aspirin_adminer
@@ -38,3 +50,4 @@ services:
 volumes:
   minio-data:
   pgdata:
+  redis-data:

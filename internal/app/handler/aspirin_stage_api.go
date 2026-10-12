@@ -25,12 +25,13 @@ type AspirinSynthesisStageResponse struct {
 	PureAspirinYieldPercent          *float64 `json:"pure_aspirin_yield_percent"`
 	AspirinSynthesisLikeCount        int      `json:"aspirin_synthesis_like_count"`
 	IsCreator                        int      `json:"is_creator"`
+	IsLiked                          int      `json:"is_liked"`
 }
 
 type PublishAspirinSynthesisStageRequest struct {
-	AspirinSynthesisStageDescription string  `json:"aspirin_stage_description" binding:"required"`
-	SynthesisDurationMinutes         int     `json:"synthesis_duration_minutes" binding:"required"`
-	PureAspirinYieldPercent          float64 `json:"pure_aspirin_yield_percent" binding:"required"`
+	AspirinSynthesisStageDescription string   `json:"aspirin_stage_description" binding:"required"`
+	SynthesisDurationMinutes         int      `json:"synthesis_duration_minutes" binding:"required"`
+	PureAspirinYieldPercent          *float64 `json:"pure_aspirin_yield_percent" binding:"required"`
 }
 
 func (h *Handler) serializeAspirinSynthesisStage(
@@ -40,51 +41,58 @@ func (h *Handler) serializeAspirinSynthesisStage(
 
 	isCreator := 0
 
-	if stage.AspirinProductionUserID == currentUserID {
+	if currentUserID > 0 && stage.AspirinProductionUserID == currentUserID {
 		isCreator = 1
 	}
 
+	isLiked := 0
+	for _, like := range stage.AspirinSynthesisStageLikes {
+		if currentUserID > 0 && like.AspirinProductionUserID == currentUserID {
+			isLiked = 1
+			break
+		}
+	}
 	return AspirinSynthesisStageResponse{
-		AspirinSynthesisStageID:
-			stage.AspirinSynthesisStageID,
+		IsLiked:                 isLiked,
+		AspirinSynthesisStageID: stage.AspirinSynthesisStageID,
 
-		AspirinSynthesisStageName:
-			stage.AspirinSynthesisStageName,
+		AspirinSynthesisStageName: stage.AspirinSynthesisStageName,
 
-		AspirinSynthesisStageDescription:
-			stage.AspirinSynthesisStageDescription,
+		AspirinSynthesisStageDescription: stage.AspirinSynthesisStageDescription,
 
-		AspirinSynthesisStageImage:
-			h.Repository.AspirinStageMediaURL(
-				stage.AspirinSynthesisStageImageURL,
-			),
+		AspirinSynthesisStageImage: h.Repository.AspirinStageMediaURL(
+			stage.AspirinSynthesisStageImageURL,
+		),
 
-		AspirinSynthesisStageVideo:
-			h.Repository.AspirinStageMediaURL(
-				stage.AspirinSynthesisStageVideoURL,
-			),
+		AspirinSynthesisStageVideo: h.Repository.AspirinStageMediaURL(
+			stage.AspirinSynthesisStageVideoURL,
+		),
 
-		SynthesisDurationMinutes:
-			stage.SynthesisDurationMinutes,
+		SynthesisDurationMinutes: stage.SynthesisDurationMinutes,
 
-		PureAspirinYieldPercent:
-			stage.PureAspirinYieldPercent,
+		PureAspirinYieldPercent: stage.PureAspirinYieldPercent,
 
-		AspirinSynthesisLikeCount:
-			stage.AspirinSynthesisLikeCount,
+		AspirinSynthesisLikeCount: stage.AspirinSynthesisLikeCount,
 
-		IsCreator:
-			isCreator,
+		IsCreator: isCreator,
 	}
 }
 
 // GET /api/aspirin-stages
+// @Summary Опубликованные этапы синтеза аспирина
+// @Tags Этапы синтеза аспирина
+// @Produce json
+// @Param Authorization header string false "Необязательный Bearer JWT для is_creator и is_liked"
+// @Param max_synthesis_duration_minutes query int false "Максимальная длительность в минутах" minimum(0)
+// @Success 200 {object} AspirinSynthesisStagesDataResponse
+// @Failure 400,500 {object} AspirinProductionMessageResponse
+// @Router /aspirin-stages [get]
 func (h *Handler) GetAspirinSynthesisStagesAPI(
 	ctx *gin.Context,
 ) {
 
 	currentUserID :=
-		GetCurrentAspirinProductionUserID()
+		GetCurrentAspirinProductionUserID(ctx)
 
 	durationStr :=
 		ctx.Query(
@@ -111,8 +119,7 @@ func (h *Handler) GetAspirinSynthesisStagesAPI(
 			ctx.JSON(
 				http.StatusBadRequest,
 				gin.H{
-					"message":
-						"Неверное значение длительности этапа синтеза",
+					"message": "Неверное значение длительности этапа синтеза",
 				},
 			)
 
@@ -136,8 +143,7 @@ func (h *Handler) GetAspirinSynthesisStagesAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"message":
-					"Ошибка получения этапов синтеза",
+				"message": "Ошибка получения этапов синтеза",
 			},
 		)
 
@@ -172,12 +178,19 @@ func (h *Handler) GetAspirinSynthesisStagesAPI(
 }
 
 // GET /api/aspirin-stages/draft
+// @Summary Черновик текущего пользователя производства аспирина
+// @Tags Этапы синтеза аспирина
+// @Produce json
+// @Security AspirinProductionBearer
+// @Success 200 {object} AspirinSynthesisStageDataResponse
+// @Failure 401,503,500 {object} AspirinProductionMessageResponse
+// @Router /aspirin-stages/draft [get]
 func (h *Handler) GetAspirinSynthesisStageDraftAPI(
 	ctx *gin.Context,
 ) {
 
 	currentUserID :=
-		GetCurrentAspirinProductionUserID()
+		GetCurrentAspirinProductionUserID(ctx)
 
 	draft, err :=
 		h.Repository.
@@ -195,8 +208,7 @@ func (h *Handler) GetAspirinSynthesisStageDraftAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"message":
-					"Ошибка получения черновика этапа синтеза",
+				"message": "Ошибка получения черновика этапа синтеза",
 			},
 		)
 
@@ -218,11 +230,10 @@ func (h *Handler) GetAspirinSynthesisStageDraftAPI(
 	ctx.JSON(
 		http.StatusOK,
 		gin.H{
-			"data":
-				h.serializeAspirinSynthesisStage(
-					*draft,
-					currentUserID,
-				),
+			"data": h.serializeAspirinSynthesisStage(
+				*draft,
+				currentUserID,
+			),
 		},
 	)
 }
@@ -342,12 +353,23 @@ func validateAspirinStageVideo(
 }
 
 // POST /api/aspirin-stages
+// @Summary Создание черновика этапа синтеза аспирина
+// @Tags Этапы синтеза аспирина
+// @Accept multipart/form-data
+// @Produce json
+// @Security AspirinProductionBearer
+// @Param aspirin_synthesis_stage_name formData string true "Название этапа"
+// @Param aspirin_synthesis_stage_image formData file false "JPEG, PNG, GIF или WebP, до 10 МБ"
+// @Param aspirin_synthesis_stage_video formData file false "MP4, WebM или QuickTime, до 50 МБ"
+// @Success 201 {object} AspirinSynthesisStageDataResponse
+// @Failure 400,401,409,500,503 {object} AspirinProductionMessageResponse
+// @Router /aspirin-stages [post]
 func (h *Handler) CreateAspirinSynthesisStageAPI(
 	ctx *gin.Context,
 ) {
 
 	currentUserID :=
-		GetCurrentAspirinProductionUserID()
+		GetCurrentAspirinProductionUserID(ctx)
 
 	existingDraft, err :=
 		h.Repository.
@@ -365,8 +387,7 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"message":
-					"Ошибка проверки существующего черновика",
+				"message": "Ошибка проверки существующего черновика",
 			},
 		)
 
@@ -378,8 +399,7 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusConflict,
 			gin.H{
-				"message":
-					"У пользователя уже есть черновик",
+				"message": "У пользователя уже есть черновик",
 			},
 		)
 
@@ -394,8 +414,7 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"message":
-					"Некорректная multipart-форма",
+				"message": "Некорректная multipart-форма",
 			},
 		)
 
@@ -414,8 +433,7 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"message":
-					"Не указано название этапа синтеза",
+				"message": "Не указано название этапа синтеза",
 			},
 		)
 
@@ -436,8 +454,7 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"message":
-					"Ошибка получения изображения",
+				"message": "Ошибка получения изображения",
 			},
 		)
 
@@ -456,8 +473,7 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 			ctx.JSON(
 				http.StatusBadRequest,
 				gin.H{
-					"message":
-						err.Error(),
+					"message": err.Error(),
 				},
 			)
 
@@ -482,8 +498,7 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 			ctx.JSON(
 				http.StatusInternalServerError,
 				gin.H{
-					"message":
-						"Ошибка сохранения изображения",
+					"message": "Ошибка сохранения изображения",
 				},
 			)
 
@@ -512,8 +527,7 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"message":
-					"Ошибка получения видео",
+				"message": "Ошибка получения видео",
 			},
 		)
 
@@ -540,8 +554,7 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 			ctx.JSON(
 				http.StatusBadRequest,
 				gin.H{
-					"message":
-						err.Error(),
+					"message": err.Error(),
 				},
 			)
 
@@ -574,8 +587,7 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 			ctx.JSON(
 				http.StatusInternalServerError,
 				gin.H{
-					"message":
-						"Ошибка сохранения видео",
+					"message": "Ошибка сохранения видео",
 				},
 			)
 
@@ -620,8 +632,7 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 			ctx.JSON(
 				http.StatusConflict,
 				gin.H{
-					"message":
-						"У пользователя уже есть черновик",
+					"message": "У пользователя уже есть черновик",
 				},
 			)
 
@@ -636,8 +647,7 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"message":
-					"Ошибка создания этапа синтеза",
+				"message": "Ошибка создания этапа синтеза",
 			},
 		)
 
@@ -647,22 +657,30 @@ func (h *Handler) CreateAspirinSynthesisStageAPI(
 	ctx.JSON(
 		http.StatusCreated,
 		gin.H{
-			"data":
-				h.serializeAspirinSynthesisStage(
-					*stage,
-					currentUserID,
-				),
+			"data": h.serializeAspirinSynthesisStage(
+				*stage,
+				currentUserID,
+			),
 		},
 	)
 }
 
 // PUT /api/aspirin-stages/draft/publication
+// @Summary Публикация черновика текущего пользователя
+// @Tags Этапы синтеза аспирина
+// @Accept json
+// @Produce json
+// @Security AspirinProductionBearer
+// @Param aspirin_stage_publication body PublishAspirinSynthesisStageRequest true "Описание, длительность и выход аспирина"
+// @Success 200 {object} AspirinSynthesisStagePublicationResponse
+// @Failure 400,401,404,500,503 {object} AspirinProductionMessageResponse
+// @Router /aspirin-stages/draft/publication [put]
 func (h *Handler) PublishAspirinSynthesisStageAPI(
 	ctx *gin.Context,
 ) {
 
 	currentUserID :=
-		GetCurrentAspirinProductionUserID()
+		GetCurrentAspirinProductionUserID(ctx)
 
 	var request PublishAspirinSynthesisStageRequest
 
@@ -674,8 +692,7 @@ func (h *Handler) PublishAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"message":
-					"Некорректные данные публикации",
+				"message": "Некорректные данные публикации",
 			},
 		)
 
@@ -692,8 +709,7 @@ func (h *Handler) PublishAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"message":
-					"Описание этапа не может быть пустым",
+				"message": "Описание этапа не может быть пустым",
 			},
 		)
 
@@ -705,22 +721,20 @@ func (h *Handler) PublishAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"message":
-					"Длительность синтеза должна быть положительным числом",
+				"message": "Длительность синтеза должна быть положительным числом",
 			},
 		)
 
 		return
 	}
 
-	if request.PureAspirinYieldPercent < 0 ||
-		request.PureAspirinYieldPercent > 100 {
+	if *request.PureAspirinYieldPercent < 0 ||
+		*request.PureAspirinYieldPercent > 100 {
 
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"message":
-					"Выход чистого аспирина должен быть от 0 до 100 процентов",
+				"message": "Выход чистого аспирина должен быть от 0 до 100 процентов",
 			},
 		)
 
@@ -733,7 +747,7 @@ func (h *Handler) PublishAspirinSynthesisStageAPI(
 				currentUserID,
 				request.AspirinSynthesisStageDescription,
 				request.SynthesisDurationMinutes,
-				request.PureAspirinYieldPercent,
+				*request.PureAspirinYieldPercent,
 			)
 
 	if err != nil {
@@ -746,8 +760,7 @@ func (h *Handler) PublishAspirinSynthesisStageAPI(
 			ctx.JSON(
 				http.StatusNotFound,
 				gin.H{
-					"message":
-						"Черновик текущего пользователя не найден",
+					"message": "Черновик текущего пользователя не найден",
 				},
 			)
 
@@ -762,8 +775,7 @@ func (h *Handler) PublishAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"message":
-					"Ошибка публикации этапа синтеза",
+				"message": "Ошибка публикации этапа синтеза",
 			},
 		)
 
@@ -773,25 +785,30 @@ func (h *Handler) PublishAspirinSynthesisStageAPI(
 	ctx.JSON(
 		http.StatusOK,
 		gin.H{
-			"message":
-				"Этап синтеза опубликован",
+			"message": "Этап синтеза опубликован",
 
-			"data":
-				h.serializeAspirinSynthesisStage(
-					*stage,
-					currentUserID,
-				),
+			"data": h.serializeAspirinSynthesisStage(
+				*stage,
+				currentUserID,
+			),
 		},
 	)
 }
 
 // GET /api/aspirin-stages/feed
+// @Summary Первый опубликованный этап в ленте
+// @Tags Лента синтеза аспирина
+// @Produce json
+// @Param Authorization header string false "Необязательный Bearer JWT для is_creator и is_liked"
+// @Success 200 {object} AspirinSynthesisStageDataResponse
+// @Failure 404,500 {object} AspirinProductionMessageResponse
+// @Router /aspirin-stages/feed [get]
 func (h *Handler) GetAspirinSynthesisStageFeedAPI(
 	ctx *gin.Context,
 ) {
 
 	currentUserID :=
-		GetCurrentAspirinProductionUserID()
+		GetCurrentAspirinProductionUserID(ctx)
 
 	stage, err :=
 		h.Repository.
@@ -810,8 +827,7 @@ func (h *Handler) GetAspirinSynthesisStageFeedAPI(
 			ctx.JSON(
 				http.StatusNotFound,
 				gin.H{
-					"message":
-						"В ленте нет опубликованных этапов",
+					"message": "В ленте нет опубликованных этапов",
 				},
 			)
 
@@ -826,8 +842,7 @@ func (h *Handler) GetAspirinSynthesisStageFeedAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"message":
-					"Ошибка получения ленты",
+				"message": "Ошибка получения ленты",
 			},
 		)
 
@@ -837,23 +852,31 @@ func (h *Handler) GetAspirinSynthesisStageFeedAPI(
 	ctx.JSON(
 		http.StatusOK,
 		gin.H{
-			"data":
-				h.serializeAspirinSynthesisStage(
-					*stage,
-					currentUserID,
-				),
+			"data": h.serializeAspirinSynthesisStage(
+				*stage,
+				currentUserID,
+			),
 		},
 	)
 }
 
 // GET /api/aspirin-stages/feed/:id
 // GET /api/aspirin-stages/feed/:id?next=true
+// @Summary Этап ленты по ID или следующий этап
+// @Tags Лента синтеза аспирина
+// @Produce json
+// @Param Authorization header string false "Необязательный Bearer JWT для is_creator и is_liked"
+// @Param id path int true "ID этапа синтеза" minimum(1)
+// @Param next query bool false "Следующий этап; после последнего возвращается первый"
+// @Success 200 {object} AspirinSynthesisStageDataResponse
+// @Failure 400,404,500 {object} AspirinProductionMessageResponse
+// @Router /aspirin-stages/feed/{id} [get]
 func (h *Handler) GetAspirinSynthesisStageFeedByIDAPI(
 	ctx *gin.Context,
 ) {
 
 	currentUserID :=
-		GetCurrentAspirinProductionUserID()
+		GetCurrentAspirinProductionUserID(ctx)
 
 	stageID, err :=
 		strconv.Atoi(
@@ -866,8 +889,7 @@ func (h *Handler) GetAspirinSynthesisStageFeedByIDAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"message":
-					"Некорректный ID этапа синтеза",
+				"message": "Некорректный ID этапа синтеза",
 			},
 		)
 
@@ -893,8 +915,7 @@ func (h *Handler) GetAspirinSynthesisStageFeedByIDAPI(
 			ctx.JSON(
 				http.StatusBadRequest,
 				gin.H{
-					"message":
-						"Параметр next должен быть true или false",
+					"message": "Параметр next должен быть true или false",
 				},
 			)
 
@@ -921,8 +942,7 @@ func (h *Handler) GetAspirinSynthesisStageFeedByIDAPI(
 			ctx.JSON(
 				http.StatusNotFound,
 				gin.H{
-					"message":
-						"Опубликованный этап не найден",
+					"message": "Опубликованный этап не найден",
 				},
 			)
 
@@ -937,8 +957,7 @@ func (h *Handler) GetAspirinSynthesisStageFeedByIDAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"message":
-					"Ошибка получения элемента ленты",
+				"message": "Ошибка получения элемента ленты",
 			},
 		)
 
@@ -948,22 +967,29 @@ func (h *Handler) GetAspirinSynthesisStageFeedByIDAPI(
 	ctx.JSON(
 		http.StatusOK,
 		gin.H{
-			"data":
-				h.serializeAspirinSynthesisStage(
-					*stage,
-					currentUserID,
-				),
+			"data": h.serializeAspirinSynthesisStage(
+				*stage,
+				currentUserID,
+			),
 		},
 	)
 }
 
 // DELETE /api/aspirin-stages/:id
+// @Summary Логическое удаление своего этапа синтеза
+// @Tags Этапы синтеза аспирина
+// @Produce json
+// @Security AspirinProductionBearer
+// @Param id path int true "ID этапа синтеза" minimum(1)
+// @Success 200 {object} AspirinProductionMessageResponse
+// @Failure 400,401,404,500,503 {object} AspirinProductionMessageResponse
+// @Router /aspirin-stages/{id} [delete]
 func (h *Handler) DeleteAspirinSynthesisStageAPI(
 	ctx *gin.Context,
 ) {
 
 	currentUserID :=
-		GetCurrentAspirinProductionUserID()
+		GetCurrentAspirinProductionUserID(ctx)
 
 	stageID, err :=
 		strconv.Atoi(
@@ -976,8 +1002,7 @@ func (h *Handler) DeleteAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"message":
-					"Некорректный ID этапа синтеза",
+				"message": "Некорректный ID этапа синтеза",
 			},
 		)
 
@@ -1001,8 +1026,7 @@ func (h *Handler) DeleteAspirinSynthesisStageAPI(
 			ctx.JSON(
 				http.StatusNotFound,
 				gin.H{
-					"message":
-						"Этап не найден или не принадлежит текущему пользователю",
+					"message": "Этап не найден или не принадлежит текущему пользователю",
 				},
 			)
 
@@ -1017,8 +1041,7 @@ func (h *Handler) DeleteAspirinSynthesisStageAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"message":
-					"Ошибка удаления этапа",
+				"message": "Ошибка удаления этапа",
 			},
 		)
 
@@ -1028,8 +1051,19 @@ func (h *Handler) DeleteAspirinSynthesisStageAPI(
 	ctx.JSON(
 		http.StatusOK,
 		gin.H{
-			"message":
-				"Этап синтеза логически удалён",
+			"message": "Этап синтеза логически удалён",
 		},
 	)
+}
+
+// Response envelopes shared by the API and its Swagger specification.
+type AspirinSynthesisStagesDataResponse struct {
+	Data []AspirinSynthesisStageResponse `json:"data"`
+}
+type AspirinSynthesisStageDataResponse struct {
+	Data *AspirinSynthesisStageResponse `json:"data"`
+}
+type AspirinSynthesisStagePublicationResponse struct {
+	Message string                        `json:"message"`
+	Data    AspirinSynthesisStageResponse `json:"data"`
 }

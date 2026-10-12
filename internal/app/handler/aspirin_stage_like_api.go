@@ -16,12 +16,22 @@ type AspirinSynthesisStageLikeRequest struct {
 }
 
 // POST /api/aspirin-stages/:id/like
+// @Summary Поставить или снять лайк текущего пользователя
+// @Tags Этапы синтеза аспирина
+// @Accept json
+// @Produce json
+// @Security AspirinProductionBearer
+// @Param id path int true "ID опубликованного этапа" minimum(1)
+// @Param aspirin_stage_like body AspirinSynthesisStageLikeRequest true "1 — поставить, 0 — снять"
+// @Success 200 {object} AspirinSynthesisStageLikeDataResponse
+// @Failure 400,401,404,500,503 {object} AspirinProductionMessageResponse
+// @Router /aspirin-stages/{id}/like [post]
 func (h *Handler) SetAspirinSynthesisStageLikeAPI(
 	ctx *gin.Context,
 ) {
 
 	currentUserID :=
-		GetCurrentAspirinProductionUserID()
+		GetCurrentAspirinProductionUserID(ctx)
 
 	stageID, err :=
 		strconv.Atoi(
@@ -34,8 +44,7 @@ func (h *Handler) SetAspirinSynthesisStageLikeAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"message":
-					"Некорректный ID этапа синтеза",
+				"message": "Некорректный ID этапа синтеза",
 			},
 		)
 
@@ -52,8 +61,7 @@ func (h *Handler) SetAspirinSynthesisStageLikeAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"message":
-					"Некорректное значение лайка",
+				"message": "Некорректное значение лайка",
 			},
 		)
 
@@ -66,8 +74,7 @@ func (h *Handler) SetAspirinSynthesisStageLikeAPI(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"message":
-					"Поле like должно иметь значение 0 или 1",
+				"message": "Поле like должно иметь значение 0 или 1",
 			},
 		)
 
@@ -92,8 +99,7 @@ func (h *Handler) SetAspirinSynthesisStageLikeAPI(
 			ctx.JSON(
 				http.StatusNotFound,
 				gin.H{
-					"message":
-						"Опубликованный этап не найден",
+					"message": "Опубликованный этап не найден",
 				},
 			)
 
@@ -108,8 +114,7 @@ func (h *Handler) SetAspirinSynthesisStageLikeAPI(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"message":
-					"Ошибка изменения лайка",
+				"message": "Ошибка изменения лайка",
 			},
 		)
 
@@ -120,12 +125,18 @@ func (h *Handler) SetAspirinSynthesisStageLikeAPI(
 		http.StatusOK,
 		gin.H{
 			"data": gin.H{
-				"like":
-					request.Like,
+				"like": request.Like,
 
-				"aspirin_synthesis_like_count":
-					likeCount,
+				"aspirin_synthesis_like_count": likeCount,
 			},
 		},
 	)
+}
+
+type AspirinSynthesisStageLikeResponse struct {
+	Like                      int `json:"like"`
+	AspirinSynthesisLikeCount int `json:"aspirin_synthesis_like_count"`
+}
+type AspirinSynthesisStageLikeDataResponse struct {
+	Data AspirinSynthesisStageLikeResponse `json:"data"`
 }

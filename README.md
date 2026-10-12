@@ -1,281 +1,50 @@
 # Aspirin Production
 
-Учебное веб-приложение по предметной области производства аспирина.
+Учебный backend для управления этапами синтеза аспирина: черновики, публикации, медиа, фильтрация и лайки. ЛР-4 добавляет JWT-аутентификацию, Redis blacklist и Swagger.
 
-## Предметная область
+**Стек:** Go 1.25+, Gin, GORM, PostgreSQL 15, MinIO, Redis 7, Swagger.
 
-Услуги приложения — этапы синтеза аспирина.
+## Запуск
 
-Пользователь может создавать этап синтеза в статусе черновика, добавлять изображение и короткое видео, заполнять описание этапа, его продолжительность и процент выхода чистого вещества, после чего публиковать услугу.
+1. Создайте `.env` по `.env.example` (в существующий файл добавьте недостающие параметры), заполните `JWT_SECRET` случайной строкой не менее 32 байт (`openssl rand -hex 32`).
+2. Запустите хранилища: `docker compose up -d`.
+3. Подготовьте БД: `go run ./cmd/migrate`. Команда создаёт таблицы и индексы и переводит старые пароли ЛР-3 в bcrypt, сохраняя сами пароли для входа. При нескольких черновиках одного пользователя сначала устраните дубли через Adminer.
+4. Запустите сервер из корня проекта: `go run ./cmd/aspirin`.
 
-В ЛР-3 реализован REST API для дальнейшего использования SPA.
+[Swagger](http://localhost:8080/swagger/index.html) · [Плитка SSR](http://localhost:8080/aspirin-synthesis-stages) · [MinIO](http://localhost:9001) · [Adminer](http://localhost:8081)
 
-## Технологии
+Бакет MinIO создаётся при запуске. Для отображения медиа разрешите публичное чтение объектов через MinIO. Настройки подключения находятся в `.env.example`; срок JWT задаётся `JWT_TTL` (по умолчанию `1h`).
 
-- Go
-- Gin
-- GORM
-- PostgreSQL
-- MinIO
-- Docker Compose
-- HTML SSR
-- CSS
-- Adminer
+## API
 
-# REST API
+Префикс маршрутов — `/api`. В Swagger описаны параметры и ответы всех методов.
 
-Все методы ЛР-3 начинаются с `/api`.
+| Метод | Маршрут | Назначение | Доступ |
+| --- | --- | --- | --- |
+| GET | `/aspirin-stages` | Публикации; фильтр `max_synthesis_duration_minutes` | Все |
+| GET | `/aspirin-stages/feed` | Первый этап ленты | Все |
+| GET | `/aspirin-stages/feed/:id` | Этап или следующий (`?next=true`) | Все |
+| GET | `/aspirin-stages/draft` | Свой черновик или `data: null` | JWT |
+| POST | `/aspirin-stages` | Черновик с медиа (`multipart/form-data`) | JWT |
+| PUT | `/aspirin-stages/draft/publication` | Публикация своего черновика | JWT |
+| DELETE | `/aspirin-stages/:id` | Логическое удаление своего этапа | JWT |
+| POST | `/aspirin-stages/:id/like` | Лайк: `{"like": 1}` / `{"like": 0}` | JWT |
+| POST | `/users` | Регистрация: `username`, `password` | Все |
+| POST | `/authentication` | Вход: `username`, `password`; возвращает JWT | Все |
+| POST | `/deauthentication` | Выход и отзыв текущего JWT | JWT |
 
-## Домен этапов синтеза
+После входа скопируйте `access_token`. В Swagger нажмите **Authorize** и введите `Bearer <access_token>`; в Postman/Insomnia используйте такой же заголовок `Authorization`. Для персональных признаков в публичных GET заполните необязательное поле `Authorization` в Swagger. `expires_in` указан в секундах. После выхода JWT отклоняется; новая аутентификация выдаёт новый токен.
 
-### GET `/api/aspirin-stages`
+В плитке и ленте возвращаются `is_creator` и `is_liked` (0/1) для текущего пользователя; для гостя оба равны 0. Публичное чтение доступно также с недействительным токеном. Защищённые запросы без действительного JWT возвращают 401, при недоступности Redis — 503.
 
-Получение списка опубликованных этапов синтеза.
+Создание: `aspirin_synthesis_stage_name` и необязательные файлы `aspirin_synthesis_stage_image` (10 МБ), `aspirin_synthesis_stage_video` (50 МБ). Публикация: JSON с `aspirin_stage_description`, `synthesis_duration_minutes` (> 0), `pure_aspirin_yield_percent` (0–100). Создатель, статусы и даты определяются сервером.
 
-Удалённые и черновые записи клиенту не передаются.
+## Данные
 
-Поддерживается фильтрация:
+Медиа хранятся в MinIO; PostgreSQL содержит пользователей, этапы и лайки. Черновик один на пользователя, лайк один на пару пользователь–этап. Переходы: `draft → published`, `draft/published → deleted`.
 
-```text
-?max_synthesis_duration_minutes=60
-```
+Redis хранит отозванные JWT по ключам `aspirin.production.jwt.blacklist.<jti>` до истечения токена. Для просмотра: `docker compose exec redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli --scan --pattern "aspirin.production.jwt.blacklist.*"'`.
 
-Каждый объект содержит поле `is_creator`:
+Обновление Swagger после изменения аннотаций: `go tool swag init -g cmd/aspirin/main.go --parseInternal`.
 
-- `1` — текущий пользователь является создателем;
-- `0` — текущий пользователь не является создателем.
-
-### GET `/api/aspirin-stages/draft`
-
-Получение единственного черновика текущего пользователя.
-
-ID черновика клиентом не передаётся.
-
-Если черновика нет:
-
-```json
-{
-  "status": "success",
-  "data": null
-}
-```
-
-### POST `/api/aspirin-stages`
-
-Создание нового черновика.
-
-Content-Type:
-
-```text
-multipart/form-data
-```
-
-Поля:
-
-- `aspirin_synthesis_stage_name`
-- `aspirin_synthesis_stage_image`
-- `aspirin_synthesis_stage_video`
-
-Изображение и видео передаются как файлы.
-
-Файлы хранятся в MinIO.
-
-В PostgreSQL сохраняются только сгенерированные сервером имена файлов.
-
-Системные поля клиентом не передаются.
-
-Статус автоматически устанавливается в `draft`.
-
-Создатель определяется через singleton текущего пользователя.
-
-Дата создания задаётся сервером.
-
-### PUT `/api/aspirin-stages/draft/publication`
-
-Публикация единственного черновика текущего пользователя.
-
-JSON:
-
-```json
-{
-  "aspirin_stage_description": "Описание этапа",
-  "synthesis_duration_minutes": 45,
-  "pure_aspirin_yield_percent": 82.5
-}
-```
-
-При публикации:
-
-- `draft` меняется на `published`;
-- устанавливается дата формирования;
-- повторная публикация невозможна;
-- возврат опубликованной записи обратно в `draft` отсутствует.
-
-### GET `/api/aspirin-stages/feed`
-
-Получение первого опубликованного элемента ленты.
-
-### GET `/api/aspirin-stages/feed/:id`
-
-Получение указанного опубликованного элемента ленты.
-
-Пример:
-
-```text
-GET /api/aspirin-stages/feed/5
-```
-
-### GET `/api/aspirin-stages/feed/:id?next=true`
-
-Получение следующего опубликованного элемента ленты.
-
-### POST `/api/aspirin-stages/:id/like`
-
-Поставить или снять лайк от текущего пользователя.
-
-JSON:
-
-```json
-{
-  "like": 1
-}
-```
-
-Значения:
-
-- `1` — поставить лайк;
-- `0` — убрать лайк.
-
-Один пользователь не может поставить одной услуге несколько лайков.
-
-### DELETE `/api/aspirin-stages/:id`
-
-Логическое удаление услуги.
-
-Удалять можно только услуги текущего пользователя.
-
-Физически запись из PostgreSQL не удаляется.
-
-Статус меняется на:
-
-```text
-deleted
-```
-
-Удалённые записи больше не передаются клиенту.
-
-# Домен пользователей
-
-### POST `/api/users`
-
-Регистрация нового пользователя.
-
-JSON:
-
-```json
-{
-  "username": "student",
-  "password": "password"
-}
-```
-
-ID пользователя вычисляется PostgreSQL.
-
-### POST `/api/authentication`
-
-Заглушка аутентификации для ЛР-4.
-
-### POST `/api/deauthentication`
-
-Заглушка деавторизации для ЛР-4.
-
-# Таблицы PostgreSQL
-
-## aspirin_production_users
-
-| Поле | Назначение |
-|---|---|
-| `production_user_id` | Первичный ключ пользователя |
-| `production_username` | Уникальное имя пользователя |
-| `production_user_password` | Пароль пользователя |
-
-## aspirin_stages
-
-| Поле | Назначение |
-|---|---|
-| `aspirin_stage_id` | Первичный ключ этапа |
-| `aspirin_stage_name` | Название |
-| `aspirin_stage_description` | Описание |
-| `aspirin_stage_status` | `draft / published / deleted` |
-| `aspirin_stage_image_url` | Имя изображения в MinIO |
-| `aspirin_stage_video_url` | Имя видео в MinIO |
-| `synthesis_duration_minutes` | Длительность этапа |
-| `pure_aspirin_yield_percent` | Выход чистого вещества |
-| `aspirin_stage_created_at` | Дата создания |
-| `aspirin_stage_formed_at` | Дата публикации |
-| `production_user_id` | Создатель услуги |
-
-## aspirin_stage_likes
-
-| Поле | Назначение |
-|---|---|
-| `aspirin_stage_like_id` | Первичный ключ лайка |
-| `production_user_id` | Пользователь |
-| `aspirin_stage_id` | Этап синтеза |
-
-Для пары:
-
-```text
-production_user_id + aspirin_stage_id
-```
-
-установлено ограничение уникальности.
-
-# Хранение медиа
-
-Изображения и видео хранятся в MinIO.
-
-В PostgreSQL сохраняется только имя объекта.
-
-Пример значения в БД:
-
-```text
-image_1760001234567_ab12cd34.png
-```
-
-При сериализации backend преобразует имя в URL:
-
-```text
-http://localhost:9000/aspirin-media/image_1760001234567_ab12cd34.png
-```
-
-# Статусы услуги
-
-Допустимый основной переход:
-
-```text
-draft -> published
-```
-
-Также услуга может быть логически удалена:
-
-```text
-draft/published -> deleted
-```
-
-Возврат из `published` в `draft` не реализован.
-
-Удалённые записи клиенту не передаются.
-
-# SSR ЛР-2
-
-Старые SSR-маршруты сохранены:
-
-- GET `/aspirin-synthesis-stage`
-- GET `/aspirin-synthesis-stage-draft`
-- GET `/aspirin-synthesis-stages`
-- POST `/aspirin-synthesis-stage-draft`
-- POST `/aspirin-synthesis-stage-publication`
-- POST `/aspirin-synthesis-stage-deletion`
-
-Таким образом ЛР-3 добавляет API, не удаляя функциональность ЛР-2.
+SSR-маршруты чтения сохранены; черновик и изменения также требуют заголовок Bearer JWT. Браузерные HTML-формы самостоятельно этот заголовок не добавляют; сценарий ЛР-4 выполняется через Swagger или Postman/Insomnia.

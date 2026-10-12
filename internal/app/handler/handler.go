@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"aspirin_back/internal/app/auth"
 	"aspirin_back/internal/app/repository"
 	"errors"
 	"net/http"
@@ -17,12 +18,14 @@ const (
 )
 
 type Handler struct {
-	Repository *repository.Repository
+	Repository     *repository.Repository
+	Authentication *auth.AspirinProductionAuthentication
 }
 
-func NewHandler(r *repository.Repository) *Handler {
+func NewHandler(r *repository.Repository, authentication *auth.AspirinProductionAuthentication) *Handler {
 	return &Handler{
-		Repository: r,
+		Repository:     r,
+		Authentication: authentication,
 	}
 }
 
@@ -156,8 +159,7 @@ func (h *Handler) ShowAspirinSynthesisStage(
 			ctx.JSON(
 				http.StatusNotFound,
 				gin.H{
-					"error":
-						"Опубликованный этап синтеза не найден или удалён",
+					"error": "Опубликованный этап синтеза не найден или удалён",
 				},
 			)
 
@@ -172,8 +174,7 @@ func (h *Handler) ShowAspirinSynthesisStage(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"error":
-					"Ошибка получения этапа синтеза аспирина",
+				"error": "Ошибка получения этапа синтеза аспирина",
 			},
 		)
 
@@ -188,16 +189,13 @@ func (h *Handler) ShowAspirinSynthesisStage(
 		http.StatusOK,
 		"aspirin_synthesis_stage_feed.html",
 		gin.H{
-			"aspirinSynthesisStage":
-				stage,
+			"aspirinSynthesisStage": stage,
 
-			"aspirinSynthesisStageDescriptionExpanded":
-				ctx.Query(
-					"aspirin_synthesis_stage_description",
-				) == "full",
+			"aspirinSynthesisStageDescriptionExpanded": ctx.Query(
+				"aspirin_synthesis_stage_description",
+			) == "full",
 
-			"defaultAspirinStageVideoURL":
-				defaultAspirinStageVideoURL,
+			"defaultAspirinStageVideoURL": defaultAspirinStageVideoURL,
 		},
 	)
 }
@@ -209,7 +207,7 @@ func (h *Handler) ShowAspirinSynthesisStageDraft(
 	draft, err :=
 		h.Repository.
 			GetAspirinSynthesisStageDraft(
-				GetCurrentAspirinProductionUserID(),
+				GetCurrentAspirinProductionUserID(ctx),
 			)
 
 	if err != nil {
@@ -222,8 +220,7 @@ func (h *Handler) ShowAspirinSynthesisStageDraft(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"error":
-					"Ошибка получения черновика этапа синтеза аспирина",
+				"error": "Ошибка получения черновика этапа синтеза аспирина",
 			},
 		)
 
@@ -241,14 +238,11 @@ func (h *Handler) ShowAspirinSynthesisStageDraft(
 		http.StatusOK,
 		"aspirin_synthesis_stage_draft.html",
 		gin.H{
-			"aspirinSynthesisStageDraft":
-				draft,
+			"aspirinSynthesisStageDraft": draft,
 
-			"defaultAspirinStageImageURL":
-				defaultAspirinStageImageURL,
+			"defaultAspirinStageImageURL": defaultAspirinStageImageURL,
 
-			"defaultAspirinStageVideoURL":
-				defaultAspirinStageVideoURL,
+			"defaultAspirinStageVideoURL": defaultAspirinStageVideoURL,
 		},
 	)
 }
@@ -283,8 +277,7 @@ func (h *Handler) ShowAspirinSynthesisStages(
 			ctx.JSON(
 				http.StatusBadRequest,
 				gin.H{
-					"error":
-						"Неверное значение длительности этапа синтеза",
+					"error": "Неверное значение длительности этапа синтеза",
 				},
 			)
 
@@ -308,8 +301,7 @@ func (h *Handler) ShowAspirinSynthesisStages(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"error":
-					"Ошибка получения этапов синтеза",
+				"error": "Ошибка получения этапов синтеза",
 			},
 		)
 
@@ -324,11 +316,9 @@ func (h *Handler) ShowAspirinSynthesisStages(
 		http.StatusOK,
 		"aspirin_synthesis_stages.html",
 		gin.H{
-			"aspirinSynthesisStages":
-				stages,
+			"aspirinSynthesisStages": stages,
 
-			"maxSynthesisDurationMinutes":
-				durationStr,
+			"maxSynthesisDurationMinutes": durationStr,
 		},
 	)
 }
@@ -350,8 +340,7 @@ func (h *Handler) CreateAspirinSynthesisStageDraft(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"error":
-					"Укажите название этапа синтеза аспирина",
+				"error": "Укажите название этапа синтеза аспирина",
 			},
 		)
 
@@ -362,7 +351,7 @@ func (h *Handler) CreateAspirinSynthesisStageDraft(
 		h.Repository.
 			CreateAspirinSynthesisStageDraft(
 				stageName,
-				GetCurrentAspirinProductionUserID(),
+				GetCurrentAspirinProductionUserID(ctx),
 			)
 
 	if err != nil {
@@ -388,8 +377,7 @@ func (h *Handler) CreateAspirinSynthesisStageDraft(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"error":
-					"Ошибка создания черновика этапа синтеза аспирина",
+				"error": "Ошибка создания черновика этапа синтеза аспирина",
 			},
 		)
 
@@ -420,8 +408,7 @@ func (h *Handler) PublishAspirinSynthesisStageDraft(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"error":
-					"Некорректный ID этапа синтеза аспирина",
+				"error": "Некорректный ID этапа синтеза аспирина",
 			},
 		)
 
@@ -440,8 +427,7 @@ func (h *Handler) PublishAspirinSynthesisStageDraft(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"error":
-					"Заполните краткое описание этапа синтеза аспирина",
+				"error": "Заполните краткое описание этапа синтеза аспирина",
 			},
 		)
 
@@ -461,8 +447,7 @@ func (h *Handler) PublishAspirinSynthesisStageDraft(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"error":
-					"Длительность синтеза должна быть положительным числом",
+				"error": "Длительность синтеза должна быть положительным числом",
 			},
 		)
 
@@ -484,8 +469,7 @@ func (h *Handler) PublishAspirinSynthesisStageDraft(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"error":
-					"Выход чистого аспирина должен быть от 0 до 100%",
+				"error": "Выход чистого аспирина должен быть от 0 до 100%",
 			},
 		)
 
@@ -493,13 +477,13 @@ func (h *Handler) PublishAspirinSynthesisStageDraft(
 	}
 
 	_, err =
-	    h.Repository.
-	    	PublishAspirinSynthesisStageDraft(
-	    		GetCurrentAspirinProductionUserID(),
-	    		description,
-	    		durationMinutes,
-	    		pureAspirinYieldPercent,
-	    	)
+		h.Repository.
+			PublishAspirinSynthesisStageDraft(
+				GetCurrentAspirinProductionUserID(ctx),
+				description,
+				durationMinutes,
+				pureAspirinYieldPercent,
+			)
 
 	if err != nil {
 
@@ -511,8 +495,7 @@ func (h *Handler) PublishAspirinSynthesisStageDraft(
 			ctx.JSON(
 				http.StatusNotFound,
 				gin.H{
-					"error":
-						"Черновик этапа синтеза аспирина не найден",
+					"error": "Черновик этапа синтеза аспирина не найден",
 				},
 			)
 
@@ -527,8 +510,7 @@ func (h *Handler) PublishAspirinSynthesisStageDraft(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"error":
-					"Ошибка публикации этапа синтеза аспирина",
+				"error": "Ошибка публикации этапа синтеза аспирина",
 			},
 		)
 
@@ -559,8 +541,7 @@ func (h *Handler) DeleteAspirinSynthesisStage(
 		ctx.JSON(
 			http.StatusBadRequest,
 			gin.H{
-				"error":
-					"Некорректный ID этапа синтеза аспирина",
+				"error": "Некорректный ID этапа синтеза аспирина",
 			},
 		)
 
@@ -571,6 +552,7 @@ func (h *Handler) DeleteAspirinSynthesisStage(
 		h.Repository.
 			DeleteAspirinSynthesisStage(
 				stageID,
+				GetCurrentAspirinProductionUserID(ctx),
 			)
 
 	if err != nil {
@@ -583,8 +565,7 @@ func (h *Handler) DeleteAspirinSynthesisStage(
 			ctx.JSON(
 				http.StatusNotFound,
 				gin.H{
-					"error":
-						"Этап синтеза аспирина не найден",
+					"error": "Этап синтеза аспирина не найден",
 				},
 			)
 
@@ -599,8 +580,7 @@ func (h *Handler) DeleteAspirinSynthesisStage(
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
-				"error":
-					"Ошибка удаления этапа синтеза аспирина",
+				"error": "Ошибка удаления этапа синтеза аспирина",
 			},
 		)
 

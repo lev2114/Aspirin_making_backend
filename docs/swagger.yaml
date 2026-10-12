@@ -1,0 +1,521 @@
+basePath: /api
+definitions:
+  handler.AspirinProductionAuthenticationResponse:
+    properties:
+      access_token:
+        type: string
+      data:
+        $ref: '#/definitions/handler.AspirinProductionUserResponse'
+      expires_in:
+        example: 3600
+        type: integer
+      token_type:
+        example: Bearer
+        type: string
+    type: object
+  handler.AspirinProductionMessageResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  handler.AspirinProductionUserDataResponse:
+    properties:
+      data:
+        $ref: '#/definitions/handler.AspirinProductionUserResponse'
+    type: object
+  handler.AspirinProductionUserResponse:
+    properties:
+      production_user_id:
+        type: integer
+      production_username:
+        type: string
+    type: object
+  handler.AspirinSynthesisStageDataResponse:
+    properties:
+      data:
+        $ref: '#/definitions/handler.AspirinSynthesisStageResponse'
+    type: object
+  handler.AspirinSynthesisStageLikeDataResponse:
+    properties:
+      data:
+        $ref: '#/definitions/handler.AspirinSynthesisStageLikeResponse'
+    type: object
+  handler.AspirinSynthesisStageLikeRequest:
+    properties:
+      like:
+        type: integer
+    type: object
+  handler.AspirinSynthesisStageLikeResponse:
+    properties:
+      aspirin_synthesis_like_count:
+        type: integer
+      like:
+        type: integer
+    type: object
+  handler.AspirinSynthesisStagePublicationResponse:
+    properties:
+      data:
+        $ref: '#/definitions/handler.AspirinSynthesisStageResponse'
+      message:
+        type: string
+    type: object
+  handler.AspirinSynthesisStageResponse:
+    properties:
+      aspirin_stage_description:
+        type: string
+      aspirin_stage_id:
+        type: integer
+      aspirin_stage_image:
+        type: string
+      aspirin_stage_name:
+        type: string
+      aspirin_stage_video:
+        type: string
+      aspirin_synthesis_like_count:
+        type: integer
+      is_creator:
+        type: integer
+      is_liked:
+        type: integer
+      pure_aspirin_yield_percent:
+        type: number
+      synthesis_duration_minutes:
+        type: integer
+    type: object
+  handler.AspirinSynthesisStagesDataResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/handler.AspirinSynthesisStageResponse'
+        type: array
+    type: object
+  handler.PublishAspirinSynthesisStageRequest:
+    properties:
+      aspirin_stage_description:
+        type: string
+      pure_aspirin_yield_percent:
+        type: number
+      synthesis_duration_minutes:
+        type: integer
+    required:
+    - aspirin_stage_description
+    - pure_aspirin_yield_percent
+    - synthesis_duration_minutes
+    type: object
+  handler.RegisterAspirinProductionUserRequest:
+    properties:
+      password:
+        example: aspirin-password
+        type: string
+      username:
+        example: student
+        maxLength: 100
+        type: string
+    required:
+    - password
+    - username
+    type: object
+info:
+  contact: {}
+  description: Управление этапами синтеза аспирина. Для защищённых методов укажите
+    Bearer JWT в Authorize.
+  title: Aspirin Production API
+  version: "1.0"
+paths:
+  /aspirin-stages:
+    get:
+      parameters:
+      - description: Необязательный Bearer JWT для is_creator и is_liked
+        in: header
+        name: Authorization
+        type: string
+      - description: Максимальная длительность в минутах
+        in: query
+        minimum: 0
+        name: max_synthesis_duration_minutes
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.AspirinSynthesisStagesDataResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+      summary: Опубликованные этапы синтеза аспирина
+      tags:
+      - Этапы синтеза аспирина
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: Название этапа
+        in: formData
+        name: aspirin_synthesis_stage_name
+        required: true
+        type: string
+      - description: JPEG, PNG, GIF или WebP, до 10 МБ
+        in: formData
+        name: aspirin_synthesis_stage_image
+        type: file
+      - description: MP4, WebM или QuickTime, до 50 МБ
+        in: formData
+        name: aspirin_synthesis_stage_video
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handler.AspirinSynthesisStageDataResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+      security:
+      - AspirinProductionBearer: []
+      summary: Создание черновика этапа синтеза аспирина
+      tags:
+      - Этапы синтеза аспирина
+  /aspirin-stages/{id}:
+    delete:
+      parameters:
+      - description: ID этапа синтеза
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+      security:
+      - AspirinProductionBearer: []
+      summary: Логическое удаление своего этапа синтеза
+      tags:
+      - Этапы синтеза аспирина
+  /aspirin-stages/{id}/like:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID опубликованного этапа
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      - description: 1 — поставить, 0 — снять
+        in: body
+        name: aspirin_stage_like
+        required: true
+        schema:
+          $ref: '#/definitions/handler.AspirinSynthesisStageLikeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.AspirinSynthesisStageLikeDataResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+      security:
+      - AspirinProductionBearer: []
+      summary: Поставить или снять лайк текущего пользователя
+      tags:
+      - Этапы синтеза аспирина
+  /aspirin-stages/draft:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.AspirinSynthesisStageDataResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+      security:
+      - AspirinProductionBearer: []
+      summary: Черновик текущего пользователя производства аспирина
+      tags:
+      - Этапы синтеза аспирина
+  /aspirin-stages/draft/publication:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Описание, длительность и выход аспирина
+        in: body
+        name: aspirin_stage_publication
+        required: true
+        schema:
+          $ref: '#/definitions/handler.PublishAspirinSynthesisStageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.AspirinSynthesisStagePublicationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+      security:
+      - AspirinProductionBearer: []
+      summary: Публикация черновика текущего пользователя
+      tags:
+      - Этапы синтеза аспирина
+  /aspirin-stages/feed:
+    get:
+      parameters:
+      - description: Необязательный Bearer JWT для is_creator и is_liked
+        in: header
+        name: Authorization
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.AspirinSynthesisStageDataResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+      summary: Первый опубликованный этап в ленте
+      tags:
+      - Лента синтеза аспирина
+  /aspirin-stages/feed/{id}:
+    get:
+      parameters:
+      - description: Необязательный Bearer JWT для is_creator и is_liked
+        in: header
+        name: Authorization
+        type: string
+      - description: ID этапа синтеза
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      - description: Следующий этап; после последнего возвращается первый
+        in: query
+        name: next
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.AspirinSynthesisStageDataResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+      summary: Этап ленты по ID или следующий этап
+      tags:
+      - Лента синтеза аспирина
+  /authentication:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Имя и пароль
+        in: body
+        name: aspirin_production_user
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RegisterAspirinProductionUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionAuthenticationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+      summary: Аутентификация пользователя производства аспирина
+      tags:
+      - Пользователи производства аспирина
+  /deauthentication:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+      security:
+      - AspirinProductionBearer: []
+      summary: Выход пользователя и отзыв текущего JWT
+      tags:
+      - Пользователи производства аспирина
+  /users:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Имя и пароль (1–72 байта)
+        in: body
+        name: aspirin_production_user
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RegisterAspirinProductionUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionUserDataResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.AspirinProductionMessageResponse'
+      summary: Регистрация пользователя производства аспирина
+      tags:
+      - Пользователи производства аспирина
+securityDefinitions:
+  AspirinProductionBearer:
+    description: Введите Bearer и JWT, полученный через POST /api/authentication.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

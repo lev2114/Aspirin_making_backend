@@ -1,0 +1,805 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Управление этапами синтеза аспирина. Для защищённых методов укажите Bearer JWT в Authorize.",
+        "title": "Aspirin Production API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/api",
+    "paths": {
+        "/aspirin-stages": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Этапы синтеза аспирина"
+                ],
+                "summary": "Опубликованные этапы синтеза аспирина",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Необязательный Bearer JWT для is_creator и is_liked",
+                        "name": "Authorization",
+                        "in": "header"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "description": "Максимальная длительность в минутах",
+                        "name": "max_synthesis_duration_minutes",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinSynthesisStagesDataResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AspirinProductionBearer": []
+                    }
+                ],
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Этапы синтеза аспирина"
+                ],
+                "summary": "Создание черновика этапа синтеза аспирина",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Название этапа",
+                        "name": "aspirin_synthesis_stage_name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "JPEG, PNG, GIF или WebP, до 10 МБ",
+                        "name": "aspirin_synthesis_stage_image",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "MP4, WebM или QuickTime, до 50 МБ",
+                        "name": "aspirin_synthesis_stage_video",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinSynthesisStageDataResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/aspirin-stages/draft": {
+            "get": {
+                "security": [
+                    {
+                        "AspirinProductionBearer": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Этапы синтеза аспирина"
+                ],
+                "summary": "Черновик текущего пользователя производства аспирина",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinSynthesisStageDataResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/aspirin-stages/draft/publication": {
+            "put": {
+                "security": [
+                    {
+                        "AspirinProductionBearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Этапы синтеза аспирина"
+                ],
+                "summary": "Публикация черновика текущего пользователя",
+                "parameters": [
+                    {
+                        "description": "Описание, длительность и выход аспирина",
+                        "name": "aspirin_stage_publication",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.PublishAspirinSynthesisStageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinSynthesisStagePublicationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/aspirin-stages/feed": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Лента синтеза аспирина"
+                ],
+                "summary": "Первый опубликованный этап в ленте",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Необязательный Bearer JWT для is_creator и is_liked",
+                        "name": "Authorization",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinSynthesisStageDataResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/aspirin-stages/feed/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Лента синтеза аспирина"
+                ],
+                "summary": "Этап ленты по ID или следующий этап",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Необязательный Bearer JWT для is_creator и is_liked",
+                        "name": "Authorization",
+                        "in": "header"
+                    },
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "ID этапа синтеза",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Следующий этап; после последнего возвращается первый",
+                        "name": "next",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinSynthesisStageDataResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/aspirin-stages/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "AspirinProductionBearer": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Этапы синтеза аспирина"
+                ],
+                "summary": "Логическое удаление своего этапа синтеза",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "ID этапа синтеза",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/aspirin-stages/{id}/like": {
+            "post": {
+                "security": [
+                    {
+                        "AspirinProductionBearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Этапы синтеза аспирина"
+                ],
+                "summary": "Поставить или снять лайк текущего пользователя",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "ID опубликованного этапа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "1 — поставить, 0 — снять",
+                        "name": "aspirin_stage_like",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinSynthesisStageLikeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinSynthesisStageLikeDataResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/authentication": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Пользователи производства аспирина"
+                ],
+                "summary": "Аутентификация пользователя производства аспирина",
+                "parameters": [
+                    {
+                        "description": "Имя и пароль",
+                        "name": "aspirin_production_user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.RegisterAspirinProductionUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionAuthenticationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/deauthentication": {
+            "post": {
+                "security": [
+                    {
+                        "AspirinProductionBearer": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Пользователи производства аспирина"
+                ],
+                "summary": "Выход пользователя и отзыв текущего JWT",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/users": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Пользователи производства аспирина"
+                ],
+                "summary": "Регистрация пользователя производства аспирина",
+                "parameters": [
+                    {
+                        "description": "Имя и пароль (1–72 байта)",
+                        "name": "aspirin_production_user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.RegisterAspirinProductionUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionUserDataResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.AspirinProductionMessageResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "handler.AspirinProductionAuthenticationResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "data": {
+                    "$ref": "#/definitions/handler.AspirinProductionUserResponse"
+                },
+                "expires_in": {
+                    "type": "integer",
+                    "example": 3600
+                },
+                "token_type": {
+                    "type": "string",
+                    "example": "Bearer"
+                }
+            }
+        },
+        "handler.AspirinProductionMessageResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.AspirinProductionUserDataResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/handler.AspirinProductionUserResponse"
+                }
+            }
+        },
+        "handler.AspirinProductionUserResponse": {
+            "type": "object",
+            "properties": {
+                "production_user_id": {
+                    "type": "integer"
+                },
+                "production_username": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.AspirinSynthesisStageDataResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/handler.AspirinSynthesisStageResponse"
+                }
+            }
+        },
+        "handler.AspirinSynthesisStageLikeDataResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/handler.AspirinSynthesisStageLikeResponse"
+                }
+            }
+        },
+        "handler.AspirinSynthesisStageLikeRequest": {
+            "type": "object",
+            "properties": {
+                "like": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handler.AspirinSynthesisStageLikeResponse": {
+            "type": "object",
+            "properties": {
+                "aspirin_synthesis_like_count": {
+                    "type": "integer"
+                },
+                "like": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handler.AspirinSynthesisStagePublicationResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/handler.AspirinSynthesisStageResponse"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.AspirinSynthesisStageResponse": {
+            "type": "object",
+            "properties": {
+                "aspirin_stage_description": {
+                    "type": "string"
+                },
+                "aspirin_stage_id": {
+                    "type": "integer"
+                },
+                "aspirin_stage_image": {
+                    "type": "string"
+                },
+                "aspirin_stage_name": {
+                    "type": "string"
+                },
+                "aspirin_stage_video": {
+                    "type": "string"
+                },
+                "aspirin_synthesis_like_count": {
+                    "type": "integer"
+                },
+                "is_creator": {
+                    "type": "integer"
+                },
+                "is_liked": {
+                    "type": "integer"
+                },
+                "pure_aspirin_yield_percent": {
+                    "type": "number"
+                },
+                "synthesis_duration_minutes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handler.AspirinSynthesisStagesDataResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.AspirinSynthesisStageResponse"
+                    }
+                }
+            }
+        },
+        "handler.PublishAspirinSynthesisStageRequest": {
+            "type": "object",
+            "required": [
+                "aspirin_stage_description",
+                "pure_aspirin_yield_percent",
+                "synthesis_duration_minutes"
+            ],
+            "properties": {
+                "aspirin_stage_description": {
+                    "type": "string"
+                },
+                "pure_aspirin_yield_percent": {
+                    "type": "number"
+                },
+                "synthesis_duration_minutes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handler.RegisterAspirinProductionUserRequest": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "example": "aspirin-password"
+                },
+                "username": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "example": "student"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "AspirinProductionBearer": {
+            "description": "Введите Bearer и JWT, полученный через POST /api/authentication.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}
